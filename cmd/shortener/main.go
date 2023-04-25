@@ -10,9 +10,9 @@ type MyMap map[string]string
 
 var m MyMap
 
+var i string
+
 func myHandler(w http.ResponseWriter, r *http.Request) {
-	m := make(MyMap)
-	var i string
 
 	if r.Method == http.MethodPost {
 		body, err := io.ReadAll(r.Body)
@@ -36,9 +36,9 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 
 		id := strings.Split(r.URL.Path, "/")
 
-		// original := m[id[len(id)-1]]
+		original := m[id[len(id)-1]]
 
-		w.Header().Set("Location", id[len(id)-1])
+		w.Header().Set("Location", original)
 		// устанавливаем код 307
 		w.WriteHeader(http.StatusTemporaryRedirect)
 		// пишем тело ответа
@@ -52,6 +52,7 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	m = make(MyMap)
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/`, myHandler)
 
