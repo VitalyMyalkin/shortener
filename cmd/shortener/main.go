@@ -26,11 +26,13 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 
 	m[string(rune(i))] = string(body)
 
+	answer := "http://localhost:8080/" + string(rune(i))
+
 	w.Header().Set("content-type", "text/plain")
 	// устанавливаем код 201
 	w.WriteHeader(http.StatusCreated)
 	// пишем тело ответа
-	w.Write([]byte(string(rune(i))))
+	w.Write([]byte(answer))
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
