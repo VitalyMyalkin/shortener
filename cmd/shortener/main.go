@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"net/http"
+	"strings"
 )
 
 type MyMap map[string]string
@@ -12,7 +13,7 @@ var m MyMap
 func myHandler(w http.ResponseWriter, r *http.Request) {
 	m := make(MyMap)
 	var i string
-	
+
 	if r.Method == http.MethodPost {
 		body, err := io.ReadAll(r.Body)
 		i += "a"
@@ -33,9 +34,9 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet {
 
-		id := strings.Split(r.URL.Path, "/")[-1]
+		id := strings.Split(r.URL.Path, "/")
 
-		original := m[id]
+		original := m[id[len(id)-1]]
 
 		w.Header().Set("Location", original)
 		// устанавливаем код 307
@@ -47,9 +48,6 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Только Post или Get запросы!!", http.StatusBadRequest)
 	return
 }
-
-func getHandler(w http.ResponseWriter, r *http.Request) {
-	
 
 func main() {
 	mux := http.NewServeMux()
