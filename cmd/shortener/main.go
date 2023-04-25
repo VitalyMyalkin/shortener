@@ -36,9 +36,9 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 
 		id := strings.Split(r.URL.Path, "/")
 
-		original := m[id[len(id)-1]]
+		// original := m[id[len(id)-1]]
 
-		w.Header().Set("Location", original)
+		w.Header().Set("Location", id[len(id)-1])
 		// устанавливаем код 307
 		w.WriteHeader(http.StatusTemporaryRedirect)
 		// пишем тело ответа
