@@ -5,21 +5,32 @@ import (
 	"net/http"
 )
 
+type MyMap map[string]string
+
+var m MyMap
+
 func postHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Только Post запросы!!", http.StatusBadRequest)
 		return
 	}
+
+	m := make(MyMap)
+	var i int
+
 	body, err := io.ReadAll(r.Body)
+	i += 1
 	if err != nil {
 		return
 	}
+
+	m[string(rune(i))] = string(body)
 
 	w.Header().Set("content-type", "text/plain")
 	// устанавливаем код 201
 	w.WriteHeader(http.StatusCreated)
 	// пишем тело ответа
-	w.Write([]byte(body))
+	w.Write([]byte(string(rune(i))))
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
@@ -29,11 +40,13 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.URL.Query().Get("id")
 
-	w.Header().Set("Location", id)
+	original := m[id]
+
+	w.Header().Set("Location", original)
 	// устанавливаем код 307
 	w.WriteHeader(http.StatusTemporaryRedirect)
 	// пишем тело ответа
-	w.Write([]byte(""))
+	io.WriteString(w, "")
 }
 
 func main() {
