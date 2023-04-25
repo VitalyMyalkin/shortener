@@ -45,8 +45,10 @@ func myHandler(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "")
 	}
 
-	http.Error(w, "Только Post или Get запросы!!", http.StatusBadRequest)
-	return
+	if (r.Method != http.MethodGet) && (r.Method != http.MethodPost) {
+		http.Error(w, "Только Post или Get запросы!!", http.StatusBadRequest)
+		return
+	}
 }
 
 func main() {
