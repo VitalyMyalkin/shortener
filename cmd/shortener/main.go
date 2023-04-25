@@ -16,17 +16,17 @@ func postHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m := make(MyMap)
-	var i int
+	var i string
 
 	body, err := io.ReadAll(r.Body)
-	i += 1
+	i += "a"
 	if err != nil {
 		return
 	}
 
-	m[string(rune(i))] = string(body)
+	m[i] = string(body)
 
-	answer := "http://localhost:8080/" + string(rune(i))
+	answer := "http://localhost:8080/" + i
 
 	w.Header().Set("content-type", "text/plain")
 	// устанавливаем код 201
