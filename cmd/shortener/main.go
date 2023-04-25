@@ -9,52 +9,51 @@ type MyMap map[string]string
 
 var m MyMap
 
-func postHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Только Post запросы!!", http.StatusBadRequest)
-		return
-	}
-
+func myHandler(w http.ResponseWriter, r *http.Request) {
 	m := make(MyMap)
 	var i string
+	
+	if r.Method == http.MethodPost {
+		body, err := io.ReadAll(r.Body)
+		i += "a"
+		if err != nil {
+			return
+		}
 
-	body, err := io.ReadAll(r.Body)
-	i += "a"
-	if err != nil {
-		return
+		m[i] = string(body)
+
+		answer := "http://localhost:8080/" + i
+
+		w.Header().Set("content-type", "text/plain")
+		// устанавливаем код 201
+		w.WriteHeader(http.StatusCreated)
+		// пишем тело ответа
+		w.Write([]byte(answer))
 	}
 
-	m[i] = string(body)
+	if r.Method == http.MethodGet {
 
-	answer := "http://localhost:8080/" + i
+		id := strings.Split(r.URL.Path, "/")[-1]
 
-	w.Header().Set("content-type", "text/plain")
-	// устанавливаем код 201
-	w.WriteHeader(http.StatusCreated)
-	// пишем тело ответа
-	w.Write([]byte(answer))
+		original := m[id]
+
+		w.Header().Set("Location", original)
+		// устанавливаем код 307
+		w.WriteHeader(http.StatusTemporaryRedirect)
+		// пишем тело ответа
+		io.WriteString(w, "")
+	}
+
+	http.Error(w, "Только Post или Get запросы!!", http.StatusBadRequest)
+	return
 }
 
 func getHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Только Get запросы!!", http.StatusBadRequest)
-		return
-	}
-	id := r.URL.Query().Get("id")
-
-	original := m[id]
-
-	w.Header().Set("Location", original)
-	// устанавливаем код 307
-	w.WriteHeader(http.StatusTemporaryRedirect)
-	// пишем тело ответа
-	io.WriteString(w, "")
-}
+	
 
 func main() {
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/`, postHandler)
-	mux.HandleFunc(`/{id}`, getHandler)
+	mux.HandleFunc(`/`, myHandler)
 
 	err := http.ListenAndServe(`:8080`, mux)
 	if err != nil {
