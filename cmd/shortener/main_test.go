@@ -24,7 +24,7 @@ func Test_MyHandler(t *testing.T) {
 		t.Run(tc.method, func(t *testing.T) {
 			r := httptest.NewRequest(tc.method, "/", nil)
 			w := httptest.NewRecorder()
-
+			m = make(MyMap)
 			// вызовем хендлер как обычную функцию, без запуска самого сервера
 			MyHandler(w, r)
 
