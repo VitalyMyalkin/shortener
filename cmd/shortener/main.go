@@ -14,8 +14,6 @@ var i string
 
 func MyHandler(w http.ResponseWriter, r *http.Request) {
 
-	m = make(MyMap)
-
 	if r.Method == http.MethodPost {
 		body, err := io.ReadAll(r.Body)
 		i += "a"
@@ -54,6 +52,8 @@ func MyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	m = make(MyMap)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc(`/`, MyHandler)
 
