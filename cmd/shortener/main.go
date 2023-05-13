@@ -23,7 +23,7 @@ func getShortened(c *gin.Context) {
 	m[i] = string(body)
 
 	c.Header("content-type", "text/plain")
-	c.String(http.StatusCreated, "http://localhost:8080/"+i)
+	c.String(http.StatusCreated, defaultShortenAddr+i)
 }
 
 func getOrigin(c *gin.Context) {
@@ -34,11 +34,12 @@ func getOrigin(c *gin.Context) {
 }
 
 func main() {
+	parseFlags()
 	m = make(MyMap)
 
 	router := gin.Default()
 	router.POST("/", getShortened)
 	router.GET("/:id", getOrigin)
 
-	router.Run("localhost:8080")
+	router.Run(flagRunAddr)
 }
