@@ -21,6 +21,7 @@ func Test_getShortened(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusCreated, w.Code, "Код ответа не совпадает с ожидаемым")
+	assert.Equal(t, origin, m["a"], "В базе не появилась запись")
 	assert.Equal(t, "http://localhost:8080/a", w.Body.String(), "Тело ответа не совпадает с ожидаемым")
 }
 

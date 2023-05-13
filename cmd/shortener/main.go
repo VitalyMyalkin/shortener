@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -13,13 +14,13 @@ var m MyMap
 var i string
 
 func getShortened(c *gin.Context) {
-	type Param struct {
-		A string
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return
 	}
-	param := new(Param)
 	i += "a"
-	c.Bind(param)
-	m[i] = param.A
+	m[i] = string(body)
 
 	c.Header("content-type", "text/plain")
 	c.String(http.StatusCreated, "http://localhost:8080/"+i)
