@@ -1,38 +1,39 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_MyHandler(t *testing.T) {
+func Test_getShortened(t *testing.T) {
+	origin := "https://practicum.yandex.ru/"
+	r := gin.Default()
+	m = make(MyMap)
+	r.POST("/", getShortened)
 
-	testCases := []struct {
-		method       string
-		expectedCode int
-		expectedBody string
-	}{
-		{method: http.MethodPost, expectedCode: http.StatusCreated, expectedBody: "http://localhost:8080/a"},
-		{method: http.MethodGet, expectedCode: http.StatusTemporaryRedirect, expectedBody: ""},
-		{method: http.MethodPut, expectedCode: http.StatusBadRequest, expectedBody: ""},
-		{method: http.MethodDelete, expectedCode: http.StatusBadRequest, expectedBody: ""},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.method, func(t *testing.T) {
-			r := httptest.NewRequest(tc.method, "/", nil)
-			w := httptest.NewRecorder()
-			m = make(MyMap)
-			// вызовем хендлер как обычную функцию, без запуска самого сервера
-			MyHandler(w, r)
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(origin)))
+	r.ServeHTTP(w, req)
 
-			assert.Equal(t, tc.expectedCode, w.Code, "Код ответа не совпадает с ожидаемым")
-			// проверим корректность полученного тела ответа, если мы его ожидаем
-			if tc.expectedBody != "" {
-				assert.Equal(t, tc.expectedBody, w.Body.String(), "Тело ответа не совпадает с ожидаемым")
-			}
-		})
-	}
+	assert.Equal(t, http.StatusCreated, w.Code, "Код ответа не совпадает с ожидаемым")
+	assert.Equal(t, "http://localhost:8080/a", w.Body.String(), "Тело ответа не совпадает с ожидаемым")
+}
+
+func Test_getOrigin(t *testing.T) {
+	r := gin.Default()
+	m = make(MyMap)
+	m["a"] = "https://practicum.yandex.ru/"
+	r.GET("/a", getOrigin)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodGet, "/a", bytes.NewBuffer([]byte("")))
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusTemporaryRedirect, w.Code, "Код ответа не совпадает с ожидаемым")
+	assert.Equal(t, "", w.Body.String(), "Тело ответа не совпадает с ожидаемым")
 }
