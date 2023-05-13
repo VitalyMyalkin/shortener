@@ -23,7 +23,7 @@ func getShortened(c *gin.Context) {
 	m[i] = string(body)
 
 	c.Header("content-type", "text/plain")
-	c.String(http.StatusCreated, defaultShortenAddr+i)
+	c.String(http.StatusCreated, defaultShortenAddr+"/"+i)
 }
 
 func getOrigin(c *gin.Context) {
