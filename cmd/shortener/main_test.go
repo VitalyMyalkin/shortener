@@ -22,7 +22,7 @@ func Test_getShortened(t *testing.T) {
 
 	assert.Equal(t, http.StatusCreated, w.Code, "Код ответа не совпадает с ожидаемым")
 	assert.Equal(t, origin, m["a"], "В базе не появилась запись")
-	assert.Equal(t, defaultShortenAddr+"/a", w.Body.String(), "Тело ответа не совпадает с ожидаемым")
+	assert.Equal(t, shortenAddr+"/a", w.Body.String(), "Тело ответа не совпадает с ожидаемым")
 }
 
 func Test_getOrigin(t *testing.T) {
