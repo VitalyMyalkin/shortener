@@ -46,7 +46,6 @@ func (newApp App) GetShortened(c *gin.Context) {
 
 func (newApp App) GetOrigin(c *gin.Context) {
 
-	original := newApp.m[c.Param("id")]
 	original, ok := newApp.m[c.Param("id")]
 	if ok {
 		c.Header("Location", original)
