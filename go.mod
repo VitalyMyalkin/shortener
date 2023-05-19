@@ -3,7 +3,7 @@ module github.com/VitalyMyalkin/shortener
 go 1.19
 
 require (
-	github.com/caarlos0/env/v6 v6.10.1
+	github.com/caarlos0/env/v8 v8.0.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/stretchr/testify v1.8.2
 )

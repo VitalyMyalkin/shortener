@@ -1,45 +1,18 @@
 package main
 
 import (
-	"io"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+
+	"github.com/VitalyMyalkin/shortener/internal/handlers"
 )
 
-type MyMap map[string]string
-
-var m MyMap
-
-var i string
-
-func getShortened(c *gin.Context) {
-
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		return
-	}
-	i += "a"
-	m[i] = string(body)
-
-	c.Header("content-type", "text/plain")
-	c.String(http.StatusCreated, shortenAddr+"/"+i)
-}
-
-func getOrigin(c *gin.Context) {
-	original := m[c.Param("id")]
-
-	c.Header("Location", original)
-	c.Status(http.StatusTemporaryRedirect)
-}
-
 func main() {
-	parseFlags()
-	m = make(MyMap)
+
+	newApp := handlers.NewApp()
 
 	router := gin.Default()
-	router.POST("/", getShortened)
-	router.GET("/:id", getOrigin)
+	router.POST("/", newApp.GetShortened)
+	router.GET("/:id", newApp.GetOrigin)
 
-	router.Run(runAddr)
+	router.Run(newApp.Cfg.RunAddr)
 }
