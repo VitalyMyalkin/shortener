@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/VitalyMyalkin/shortener/config"
@@ -46,14 +47,12 @@ func (newApp App) GetShortened(c *gin.Context) {
 func (newApp App) GetOrigin(c *gin.Context) {
 
 	original := newApp.m[c.Param("id")]
-	if original == "" {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Длинной ссылки по заданной короткой ссылке не существует!",
-		})
+	original, ok := newApp.m[c.Param("id")]
+	if ok {
+		c.Header("Location", original)
+		c.Status(http.StatusTemporaryRedirect)
 	}
-
-	c.Header("Location", original)
-	c.Status(http.StatusTemporaryRedirect)
+	c.Status(http.StatusBadRequest)
 }
 
 func main() {
