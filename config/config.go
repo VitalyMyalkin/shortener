@@ -28,7 +28,7 @@ func GetConfig() Config {
 
 	Cfg.parseFlags()
 
-	env.Parse(&Cfg)
+	// env.Parse(&Cfg)
 
 	return Cfg
 }
