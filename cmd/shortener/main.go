@@ -50,8 +50,9 @@ func (newApp App) GetOrigin(c *gin.Context) {
 	if ok {
 		c.Header("Location", original)
 		c.Status(http.StatusTemporaryRedirect)
-	}
-	c.Status(http.StatusBadRequest)
+	} else {
+		c.Status(http.StatusBadRequest)
+	} 
 }
 
 func main() {
