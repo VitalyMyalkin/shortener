@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"flag"
 
 	"github.com/stretchr/testify/assert"
 )

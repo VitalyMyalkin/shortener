@@ -8,12 +8,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/VitalyMyalkin/shortener/config"
 )
 
 func Test_getShortened(t *testing.T) {
 	origin := "https://practicum.yandex.ru/"
 	r := gin.Default()
-	newApp := NewApp()
+	cfg := config.Config{
+		RunAddr: "localhost:8080",
+		ShortenAddr: "http://localhost:8080",
+	}
+
+	m := make(map[string]string)
+	newApp := App{
+		Cfg: cfg,
+		m:   m,
+		i:   0,
+	}
 	r.POST("/", newApp.GetShortened)
 
 	w := httptest.NewRecorder()
@@ -27,8 +38,18 @@ func Test_getShortened(t *testing.T) {
 
 func Test_getOrigin(t *testing.T) {
 	r := gin.Default()
-	newApp := NewApp()
-	// newApp.m["1"] = "https://practicum.yandex.ru/"
+	cfg := config.Config{
+		RunAddr: "localhost:8080",
+		ShortenAddr: "http://localhost:8080",
+	}
+
+	m := make(map[string]string)
+	newApp := App{
+		Cfg: cfg,
+		m:   m,
+		i:   0,
+	}
+	newApp.m["1"] = "https://practicum.yandex.ru/"
 	r.GET("/1", newApp.GetOrigin)
 
 	w := httptest.NewRecorder()
