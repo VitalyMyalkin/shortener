@@ -24,11 +24,11 @@ func (cfg Config) parseFlags() {
 
 func GetConfig() Config {
 
-	cfg := Config{}
+	Cfg := Config{}
 
-	cfg.parseFlags()
+	Cfg.parseFlags()
 
-	env.Parse(&cfg)
+	env.Parse(&Cfg)
 
-	return cfg
+	return Cfg
 }
