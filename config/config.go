@@ -3,7 +3,7 @@ package config
 import (
 	"flag"
 
-	"github.com/caarlos0/env/v8"
+	// "github.com/caarlos0/env/v8"
 )
 
 // неэкспортированная переменная runAddr содержит адрес и порт для запуска сервера
