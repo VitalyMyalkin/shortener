@@ -51,7 +51,8 @@ func (newApp App) GetOrigin(c *gin.Context) {
 		c.Header("Location", original)
 		c.Status(http.StatusTemporaryRedirect)
 	} else {
-		c.Status(http.StatusTemporaryRedirect)
+		// тесты не пропускают код 404!
+		c.Status(http.StatusNotFound)
 	} 
 }
 
