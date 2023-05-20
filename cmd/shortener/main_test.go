@@ -55,7 +55,9 @@ func Test_getOrigin(t *testing.T) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "/1", bytes.NewBuffer([]byte("")))
 	r.ServeHTTP(w, req)
-
+	// почему 404 код теперь проходит тесты, а не 307 - ноль идей. 
+	// механизм теста я не трогал, не исключено, что он не работал с самого начала
+	// дай замечание, пожалуйста, как исправить, чтоб тест корректно отрабатывал
 	assert.Equal(t, http.StatusNotFound, w.Code, "Код ответа не совпадает с ожидаемым")
 	assert.Equal(t, "", w.Body.String(), "Тело ответа не совпадает с ожидаемым")
 }
