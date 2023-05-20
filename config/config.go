@@ -6,7 +6,6 @@ import (
 	"github.com/caarlos0/env/v8"
 )
 
-// неэкспортированная переменная runAddr содержит адрес и порт для запуска сервера
 type Config struct {
 	RunAddr     string `env:"SERVER_ADDRESS"`
 	ShortenAddr string `env:"BASE_URL"`
