@@ -51,7 +51,7 @@ func (newApp App) GetOrigin(c *gin.Context) {
 		c.Header("Location", original)
 		c.Status(http.StatusTemporaryRedirect)
 	} else {
-		c.Status(http.StatusNotFound)
+		c.Status(http.StatusTemporaryRedirect)
 	} 
 }
 
