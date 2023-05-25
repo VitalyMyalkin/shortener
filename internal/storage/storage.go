@@ -1,8 +1,7 @@
-package utils
+package storage
 
 import (
 	"net/url"
-	"strconv"
 )
 
 type Storage struct {
@@ -18,7 +17,7 @@ func NewStorage() *Storage {
 	}
 }
 
-func (newStorage *Storage) AddOrigin(short int, url *url.URL) {
+func (newStorage *Storage) AddOrigin(short string, url *url.URL) {
 
-	newStorage.Storage[strconv.Itoa(short)] = url.String()
+	newStorage.Storage[short] = url.String()
 }

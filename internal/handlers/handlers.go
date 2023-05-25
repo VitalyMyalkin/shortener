@@ -9,12 +9,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/VitalyMyalkin/shortener/internal/config"
-	"github.com/VitalyMyalkin/shortener/internal/utils"
+	"github.com/VitalyMyalkin/shortener/internal/storage"
 )
 
 type App struct {
 	Cfg     config.Config
-	Storage *utils.Storage
+	Storage *storage.Storage
 	short   int
 }
 
@@ -22,7 +22,7 @@ func NewApp() *App {
 
 	cfg := config.GetConfig()
 
-	storage := utils.NewStorage()
+	storage := storage.NewStorage()
 
 	return &App{
 		Cfg:     cfg,
@@ -46,7 +46,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		})
 	}
 	newApp.short += 1
-	newApp.Storage.AddOrigin(newApp.short, url)
+	newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 
 	c.Header("content-type", "text/plain")
 	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))

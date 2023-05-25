@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/VitalyMyalkin/shortener/internal/config"
-	"github.com/VitalyMyalkin/shortener/internal/utils"
+	"github.com/VitalyMyalkin/shortener/internal/storage"
 )
 
 func Test_getShortened(t *testing.T) {
@@ -23,7 +23,7 @@ func Test_getShortened(t *testing.T) {
 		ShortenAddr: "http://localhost:8080",
 	}
 
-	storage := utils.NewStorage()
+	storage := storage.NewStorage()
 	newApp := App{
 		Cfg:     cfg,
 		Storage: storage,
@@ -85,14 +85,14 @@ func Test_getOrigin(t *testing.T) {
 		ShortenAddr: "http://localhost:8080",
 	}
 
-	storage := utils.NewStorage()
+	storage := storage.NewStorage()
 	newApp := App{
 		Cfg:     cfg,
 		Storage: storage,
 		short:   0,
 	}
 	url, _ := url.ParseRequestURI("https://practicum.yandex.ru/")
-	newApp.Storage.AddOrigin(1, url)
+	newApp.Storage.AddOrigin("1", url)
 
 	type want struct {
 		code     int
