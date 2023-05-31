@@ -31,7 +31,6 @@ func Initialize() error {
 type (
     // берём структуру для хранения сведений об ответе
     responseData struct {
-        status int
         size int
     }
 
@@ -56,7 +55,6 @@ func WithLogging() gin.HandlerFunc {
         start := time.Now()
 
         responseData := &responseData {
-            status: 0,
             size: 0,
         }
         
