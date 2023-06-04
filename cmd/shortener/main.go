@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/VitalyMyalkin/shortener/internal/compress"
 	"github.com/VitalyMyalkin/shortener/internal/handlers"
 	"github.com/VitalyMyalkin/shortener/internal/logger"
 )
@@ -16,6 +17,7 @@ func main() {
 	router := gin.Default()
 	logger.Initialize()
 	router.Use(logger.WithLogging())
+	router.Use(compress.GzipMiddleware())
 
 	router.POST("/", newApp.GetShortened)
 	router.POST("/api/shorten", newApp.GetShortenedAPI)
