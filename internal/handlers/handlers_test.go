@@ -57,12 +57,72 @@ func Test_getShortened(t *testing.T) {
 		},
 	}
 
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// создаём новый Recorder
 			w := httptest.NewRecorder()
 			req, _ := http.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte(test.origin)))
+			r.ServeHTTP(w, req)
+
+			res := w.Result()
+			// проверяем код ответа
+			assert.Equal(t, res.StatusCode, test.want.code, "Код ответа не совпадает с ожидаемым")
+			// получаем и проверяем тело запроса
+			defer res.Body.Close()
+			resBody, err := io.ReadAll(res.Body)
+
+			require.NoError(t, err)
+			assert.Equal(t, string(resBody), test.want.response, "Тело ответа не совпадает с ожидаемым")
+		})
+	}
+}
+
+func Test_getShortenedAPI(t *testing.T) {
+	r := gin.Default()
+	cfg := config.Config{
+		RunAddr:     "localhost:8080",
+		ShortenAddr: "http://localhost:8080",
+	}
+
+	storage := storage.NewStorage()
+	newApp := App{
+		Cfg:     cfg,
+		Storage: storage,
+		short:   0,
+	}
+	r.POST("/api/shorten", newApp.GetShortenedAPI)
+	type want struct {
+		code     int
+		response string
+	}
+	tests := []struct {
+		name   string
+		origin string
+		want   want
+	}{
+		{
+			name:   "positive test #1",
+			origin: `{"url": "https://practicum.yandex.ru"}`,
+			want: want{
+				code:     201,
+				response: `{"result":"http://localhost:8080/1"}`,
+			},
+		},
+		{
+			name:   "positive test #2",
+			origin: `{"url": "https://youtube.com/"}`,
+			want: want{
+				code:     201,
+				response: `{"result":"http://localhost:8080/2"}`,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// создаём новый Recorder
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest(http.MethodPost, "/api/shorten", bytes.NewBuffer([]byte(test.origin)))
 			r.ServeHTTP(w, req)
 
 			res := w.Result()

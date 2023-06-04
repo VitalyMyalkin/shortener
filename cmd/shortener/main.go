@@ -18,6 +18,7 @@ func main() {
 	router.Use(logger.WithLogging())
 
 	router.POST("/", newApp.GetShortened)
+	router.POST("/api/shorten", newApp.GetShortenedAPI)
 	router.GET("/:id", newApp.GetOrigin)
 
 	if err := router.Run(newApp.Cfg.RunAddr); err != nil {
