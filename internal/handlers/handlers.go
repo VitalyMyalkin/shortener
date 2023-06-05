@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"encoding/json"
 	"compress/gzip"
 
@@ -40,19 +41,30 @@ func NewApp() *App {
 }
 
 func (newApp *App) GetShortened(c *gin.Context) {
-
-	gz, err := gzip.NewReader(c.Request.Body)
-    if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
-	}
-
-	body, err := io.ReadAll(gz)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err,
-		})
+	var body []byte
+	var err error
+	acceptEncoding := c.Request.Header.Get("Accept-Encoding")
+	supportsGzip := strings.Contains(acceptEncoding, "gzip")
+	if supportsGzip {
+		gz, err := gzip.NewReader(c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err,
+			})
+    	}
+		body, err = io.ReadAll(gz)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err,
+			})
+		}
+	} else {
+		body, err = io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err,
+			})
+		}
 	}
 	url, err := url.ParseRequestURI(string(body))
 	if err != nil {
