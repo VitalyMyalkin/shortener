@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"encoding/json"
+	"compress/gzip"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -40,7 +41,14 @@ func NewApp() *App {
 
 func (newApp *App) GetShortened(c *gin.Context) {
 
-	body, err := io.ReadAll(c.Request.Body)
+	gz, err := gzip.NewReader(c.Request.Body)
+    if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err,
+		})
+	}
+
+	body, err := io.ReadAll(gz)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err,
