@@ -9,40 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// compressWriter реализует интерфейс http.ResponseWriter и позволяет прозрачно для сервера
-// сжимать передаваемые данные и выставлять правильные HTTP-заголовки
-type compressWriter struct {
-    w  http.ResponseWriter
-    zw *gzip.Writer
-}
-
-func newCompressWriter(w http.ResponseWriter) *compressWriter {
-    return &compressWriter{
-        w:  w,
-        zw: gzip.NewWriter(w),
-    }
-}
-
-func (c *compressWriter) Header() http.Header {
-    return c.w.Header()
-}
-
-func (c *compressWriter) Write(p []byte) (int, error) {
-    return c.zw.Write(p)
-}
-
-func (c *compressWriter) WriteHeader(statusCode int) {
-    if statusCode < 300 {
-        c.w.Header().Set("Content-Encoding", "gzip")
-    }
-    c.w.WriteHeader(statusCode)
-}
-
-// Close закрывает gzip.Writer и досылает все данные из буфера.
-func (c *compressWriter) Close() error {
-    return c.zw.Close()
-}
-
 // compressReader реализует интерфейс io.ReadCloser и позволяет прозрачно для сервера
 // декомпрессировать получаемые от клиента данные
 type compressReader struct {
@@ -81,11 +47,16 @@ func GzipMiddleware() gin.HandlerFunc {
         supportsGzip := strings.Contains(acceptEncoding, "gzip")
         if supportsGzip {
             // оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
-            cw := newCompressWriter(c.Writer)
+            gz, err := gzip.NewWriterLevel(c.Writer, gzip.BestSpeed)
+			if err != nil {
+				io.WriteString(c.Writer, err.Error())
+				return
+			}
+			c.Writer.Header().Set("Accept-Encoding", "gzip")
             // не забываем отправить клиенту все сжатые данные после завершения middleware
-            defer cw.Close()
+            defer gz.Close()
         }
-
+        
         // проверяем, что клиент отправил серверу сжатые данные в формате gzip
         contentEncoding := c.Request.Header.Get("Content-Encoding")
         sendsGzip := strings.Contains(contentEncoding, "gzip")
