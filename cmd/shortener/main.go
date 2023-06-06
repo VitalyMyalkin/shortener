@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	
-	"github.com/gin-contrib/gzip"
+
 	"github.com/gin-gonic/gin"
 
-	
+	"github.com/VitalyMyalkin/shortener/internal/compress"
 	"github.com/VitalyMyalkin/shortener/internal/handlers"
 	"github.com/VitalyMyalkin/shortener/internal/logger"
 )
@@ -18,7 +17,7 @@ func main() {
 	router := gin.Default()
 	logger.Initialize()
 	router.Use(logger.WithLogging())
-	router.Use(gzip.Gzip(gzip.DefaultCompression))
+	router.Use(compress.GzipMiddleware())
 
 	router.POST("/", newApp.GetShortened)
 	router.POST("/api/shorten", newApp.GetShortenedAPI)
