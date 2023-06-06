@@ -33,7 +33,7 @@ type compressReader struct {
 	zr *gzip.Reader
 }
 
-func newCompressReader(r io.ReadCloser) (*compressReader, error) {
+func NewCompressReader(r io.ReadCloser) (*compressReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func GzipMiddleware() gin.HandlerFunc {
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
 		if sendsGzip {
 			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
-			cr, err := newCompressReader(c.Request.Body)
+			cr, err := NewCompressReader(c.Request.Body)
 			if err != nil {
 				c.Writer.WriteHeader(http.StatusInternalServerError)
 				return

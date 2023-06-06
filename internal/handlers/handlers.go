@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"encoding/json"
 	"compress/gzip"
 
@@ -12,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/VitalyMyalkin/shortener/internal/config"
+	"github.com/VitalyMyalkin/shortener/internal/compress"
 	"github.com/VitalyMyalkin/shortener/internal/storage"
 	"github.com/VitalyMyalkin/shortener/internal/logger"
 )
@@ -40,7 +42,19 @@ func NewApp() *App {
 }
 
 func (newApp *App) GetShortened(c *gin.Context) {
-
+	
+	contentEncoding := c.Request.Header.Get("Content-Encoding")
+	sendsGzip := strings.Contains(contentEncoding, "gzip")
+	if sendsGzip {
+		// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
+		cr, err := compress.NewCompressReader(c.Request.Body)
+		if err != nil {
+			c.Writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		// меняем тело запроса на новое
+		c.Request.Body = cr
+	}
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		gz, err := gzip.NewReader(c.Request.Body)
