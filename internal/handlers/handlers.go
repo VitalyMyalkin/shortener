@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -83,6 +82,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	} else {
 		fileName := newApp.Cfg.FilePath
+		defer os.Remove(fileName)
 
 		Producer, err := storage.NewProducer(fileName)
 		if err != nil {
@@ -137,7 +137,7 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 			logger.Log.Fatal("не создан или не открылся файл записи")
 		}
 
-		data, err := ioutil.ReadAll(file)
+		data, err := io.ReadAll(file)
 
 		if err != nil {
 			logger.Log.Fatal("невозможно прочитать данные файла записи")
