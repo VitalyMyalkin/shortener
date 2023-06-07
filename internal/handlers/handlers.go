@@ -84,7 +84,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer("text1.txt")
+		Producer, err := storage.NewProducer(newApp.Cfg.FilePath)
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -114,7 +114,21 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 		c.String(http.StatusBadRequest, "")
 	}
 	newApp.short += 1
-	newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
+	if newApp.Cfg.FilePath == "" {
+		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
+	} else {
+		fileName := newApp.Cfg.FilePath
+		defer os.Remove(fileName)
+
+		Producer, err := storage.NewProducer(newApp.Cfg.FilePath)
+		if err != nil {
+			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
+		}
+		defer Producer.Close()
+		if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
+			logger.Log.Fatal("запись не внесена в файл")
+		}
+	}
 
 	c.Header("content-type", "application/json")
 
@@ -129,7 +143,7 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 	original, ok = newApp.Storage.Storage[c.Param("id")]
 	if newApp.Cfg.FilePath != "" {
 		ok = false
-		fileName := "text1.txt"
+		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
 		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
