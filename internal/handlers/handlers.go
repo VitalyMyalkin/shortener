@@ -1,21 +1,23 @@
 package handlers
 
 import (
+	"compress/gzip"
+	"encoding/json"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
-	"encoding/json"
-	"compress/gzip"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/VitalyMyalkin/shortener/internal/config"
 	"github.com/VitalyMyalkin/shortener/internal/compress"
-	"github.com/VitalyMyalkin/shortener/internal/storage"
+	"github.com/VitalyMyalkin/shortener/internal/config"
 	"github.com/VitalyMyalkin/shortener/internal/logger"
+	"github.com/VitalyMyalkin/shortener/internal/storage"
 )
 
 type App struct {
@@ -25,7 +27,7 @@ type App struct {
 }
 
 type Request struct {
-    URLstring string    `json:"url"`
+	URLstring string `json:"url"`
 }
 
 func NewApp() *App {
@@ -42,7 +44,7 @@ func NewApp() *App {
 }
 
 func (newApp *App) GetShortened(c *gin.Context) {
-	
+
 	contentEncoding := c.Request.Header.Get("Content-Encoding")
 	sendsGzip := strings.Contains(contentEncoding, "gzip")
 	if sendsGzip {
@@ -62,7 +64,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err,
 			})
-    	}
+		}
 		body, err = io.ReadAll(gz)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -77,8 +79,20 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		})
 	}
 	newApp.short += 1
-	newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
+	if newApp.Cfg.FilePath == "" {
+		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
+	} else {
+		fileName := newApp.Cfg.FilePath
 
+		Producer, err := storage.NewProducer(fileName)
+		if err != nil {
+			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
+		}
+		defer Producer.Close()
+		if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
+			logger.Log.Fatal("запись не внесена в файл")
+		}
+	}
 	c.Header("content-type", "text/plain")
 	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
 }
@@ -86,32 +100,64 @@ func (newApp *App) GetShortened(c *gin.Context) {
 func (newApp *App) GetShortenedAPI(c *gin.Context) {
 
 	// десериализуем запрос в структуру модели
-    logger.Log.Debug("decoding request")
-    var req Request
-    dec := json.NewDecoder(c.Request.Body)
-    if err := dec.Decode(&req); err != nil {
-        logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
-        c.String(http.StatusInternalServerError, "")
-    }
+	logger.Log.Debug("decoding request")
+	var req Request
+	dec := json.NewDecoder(c.Request.Body)
+	if err := dec.Decode(&req); err != nil {
+		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
+		c.String(http.StatusInternalServerError, "")
+	}
 
 	url, err := url.ParseRequestURI(req.URLstring)
 	if err != nil {
-		logger.Log.Debug(req.URLstring + "не является валидным URL", zap.Error(err))
+		logger.Log.Debug(req.URLstring+"не является валидным URL", zap.Error(err))
 		c.String(http.StatusBadRequest, "")
 	}
 	newApp.short += 1
 	newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 
 	c.Header("content-type", "application/json")
-	
+
 	c.JSON(http.StatusCreated, gin.H{
-		"result": newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short),
+		"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
 	})
 }
 
 func (newApp *App) GetOrigin(c *gin.Context) {
+	var ok bool
+	var original string
+	if newApp.Cfg.FilePath == "" {
+		original, ok = newApp.Storage.Storage[c.Param("id")]
+	} else {
+		fileName := newApp.Cfg.FilePath
+		defer os.Remove(fileName)
 
-	original, ok := newApp.Storage.Storage[c.Param("id")]
+		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
+		if err != nil {
+			logger.Log.Fatal("не создан или не открылся файл записи")
+		}
+
+		data, err := ioutil.ReadAll(file)
+
+		if err != nil {
+			logger.Log.Fatal("невозможно прочитать данные файла записи")
+		}
+
+		var result []storage.ShortenedURL
+
+		jsonErr := json.Unmarshal(data, &result)
+
+		if jsonErr != nil {
+			logger.Log.Fatal("невозможно преобразовать данные файла записи")
+		}
+
+		for _, shortenedURL := range result {
+			if shortenedURL.ShortURL == c.Param("id") {
+				ok = true
+				original = shortenedURL.OriginalURL
+			}
+		}
+	}
 	if ok {
 		c.Header("Location", original)
 		c.Status(http.StatusTemporaryRedirect)
