@@ -84,7 +84,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer(fileName)
+		Producer, err := storage.NewProducer("text1.txt")
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -125,10 +125,11 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 
 func (newApp *App) GetOrigin(c *gin.Context) {
 	var original string
-	ok := true
+	ok := false
 	original, ok = newApp.Storage.Storage[c.Param("id")]
-	if !ok {
-		fileName := newApp.Cfg.FilePath
+	if newApp.Cfg.FilePath != "" {
+		ok = false
+		fileName := "text1.txt"
 		defer os.Remove(fileName)
 
 		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
@@ -136,25 +137,18 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 			logger.Log.Fatal("не создан или не открылся файл записи")
 		}
 
-		data, err := io.ReadAll(file)
-
 		if err != nil {
 			logger.Log.Fatal("невозможно прочитать данные файла записи")
 		}
 
-		var result []storage.ShortenedURL
+		var shortenedURL storage.ShortenedURL
 
-		jsonErr := json.Unmarshal(data, &result)
-
-		if jsonErr != nil {
-			logger.Log.Fatal("невозможно преобразовать данные файла записи")
-		}
-
-		for _, shortenedURL := range result {
-			if shortenedURL.ShortURL == c.Param("id") {
-				ok = true
-				original = shortenedURL.OriginalURL
-			}
+		jsonParser := json.NewDecoder(file)
+    	jsonParser.Decode(&shortenedURL)
+		
+		if shortenedURL.ShortURL == c.Param("id") {
+			ok = true
+			original = shortenedURL.OriginalURL
 		}
 	}
 	if ok {
