@@ -124,8 +124,8 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 }
 
 func (newApp *App) GetOrigin(c *gin.Context) {
-	var ok bool
 	var original string
+	ok := false
 	if newApp.Cfg.FilePath == "" {
 		original, ok = newApp.Storage.Storage[c.Param("id")]
 	} else {
