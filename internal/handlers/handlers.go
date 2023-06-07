@@ -137,32 +137,30 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 }
 
 func (newApp *App) GetOrigin(c *gin.Context) {
-	
-	original, ok := newApp.Storage.Storage[c.Param("id")]
-	if newApp.Cfg.FilePath != "" {
-		ok = false
-		fileName := newApp.Cfg.FilePath
-		defer os.Remove(fileName)
+	ok := false
+	var original string
+	fileName := newApp.Cfg.FilePath
+	defer os.Remove(fileName)
 
-		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
-		if err != nil {
-			logger.Log.Fatal("не создан или не открылся файл записи")
-		}
-
-		if err != nil {
-			logger.Log.Fatal("невозможно прочитать данные файла записи")
-		}
-
-		var shortenedURL storage.ShortenedURL
-
-		jsonParser := json.NewDecoder(file)
-    	jsonParser.Decode(&shortenedURL)
-		
-		if shortenedURL.ShortURL == c.Param("id") {
-			ok = true
-			original = shortenedURL.OriginalURL
-		}
+	file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		logger.Log.Fatal("не создан или не открылся файл записи")
 	}
+
+	if err != nil {
+		logger.Log.Fatal("невозможно прочитать данные файла записи")
+	}
+
+	var shortenedURL storage.ShortenedURL
+
+	jsonParser := json.NewDecoder(file)
+	jsonParser.Decode(&shortenedURL)
+	
+	if shortenedURL.ShortURL == c.Param("id") {
+		ok = true
+		original = shortenedURL.OriginalURL
+	}
+
 	if ok {
 		c.Header("Location", original)
 		c.Status(http.StatusTemporaryRedirect)
