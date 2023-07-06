@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"bufio"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -84,7 +85,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer(newApp.Cfg.FilePath)
+		Producer, err := storage.NewProducer("hello.txt")
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -120,7 +121,7 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer(newApp.Cfg.FilePath)
+		Producer, err := storage.NewProducer(fileName)
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -137,31 +138,39 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 }
 
 func (newApp *App) GetOrigin(c *gin.Context) {
-	ok := false
 	var original string
-	fileName := newApp.Cfg.FilePath
-	defer os.Remove(fileName)
+	if newApp.Cfg.FilePath == "" {
+		original = newApp.Storage.Storage[c.Param("id")]
+	} else {
+		fileName := newApp.Cfg.FilePath
+		defer os.Remove(fileName)
 
-	file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
-	if err != nil {
-		logger.Log.Fatal("не создан или не открылся файл записи")
+		file, err := os.OpenFile("hello.txt", os.O_RDONLY|os.O_CREATE, 0666)
+		if err != nil {
+			logger.Log.Fatal("не создан или не открылся файл записи")
+		}
+
+		if err != nil {
+			logger.Log.Fatal("невозможно прочитать данные файла записи")
+		}
+
+		var shortenedURL storage.ShortenedURL
+
+		scanner := bufio.NewScanner(file)
+		// optionally, resize scanner's capacity for lines over 64K, see next example
+		for scanner.Scan() {
+			err = json.Unmarshal(scanner.Bytes(), &shortenedURL)
+			if err != nil {
+				logger.Log.Fatal("не создана структура")
+			} else {
+				if shortenedURL.ShortURL == c.Param("id") {
+					original = shortenedURL.OriginalURL
+				}
+			}
+		}
 	}
 
-	if err != nil {
-		logger.Log.Fatal("невозможно прочитать данные файла записи")
-	}
-
-	var shortenedURL storage.ShortenedURL
-
-	jsonParser := json.NewDecoder(file)
-	jsonParser.Decode(&shortenedURL)
-	
-	if shortenedURL.ShortURL == c.Param("id") {
-		ok = true
-		original = shortenedURL.OriginalURL
-	}
-
-	if ok {
+	if original != "" {
 		c.Header("Location", original)
 		c.Status(http.StatusTemporaryRedirect)
 	} else {
