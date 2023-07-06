@@ -139,9 +139,10 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 
 func (newApp *App) GetOrigin(c *gin.Context) {
 	var original string
-	if newApp.Cfg.FilePath == "" {
-		original = newApp.Storage.Storage[c.Param("id")]
-	} else {
+	
+	original = newApp.Storage.Storage[c.Param("id")]
+	
+	if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
