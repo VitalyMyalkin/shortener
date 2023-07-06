@@ -83,9 +83,8 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	} else {
 		fileName := newApp.Cfg.FilePath
-		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer("text1.txt")
+		Producer, err := storage.NewProducer(fileName)
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -119,9 +118,8 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	} else {
 		fileName := newApp.Cfg.FilePath
-		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer("text1.txt")
+		Producer, err := storage.NewProducer(fileName)
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -144,9 +142,8 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 
 	if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
-		defer os.Remove(fileName)
 
-		file, err := os.OpenFile("text1.txt", os.O_RDONLY|os.O_CREATE, 0666)
+		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи")
 		}
@@ -158,7 +155,6 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 		var shortenedURL storage.ShortenedURL
 
 		scanner := bufio.NewScanner(file)
-		// optionally, resize scanner's capacity for lines over 64K, see next example
 		for scanner.Scan() {
 			err = json.Unmarshal(scanner.Bytes(), &shortenedURL)
 			if err != nil {
