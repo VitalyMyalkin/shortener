@@ -167,7 +167,7 @@ func Test_getOrigin(t *testing.T) {
 			name:    "positive test #1",
 			request: "/1",
 			want: want{
-				code:     404,
+				code:     307,
 				response: "",
 			},
 		},
