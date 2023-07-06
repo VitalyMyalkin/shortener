@@ -1,3 +1,4 @@
 {"uuid":"1","short_url":"1","original_url":"https://practicum.yandex.ru"}
 {"uuid":"2","short_url":"2","original_url":"https://vk.com"}
 {"uuid":"3","short_url":"3","original_url":"http://ya.ru"}
+{"uuid":"4","short_url":"4","original_url":"http://lwb1xqvs39y5cr.yandex/d9vfnsge8/rbpakwql3k230w"}

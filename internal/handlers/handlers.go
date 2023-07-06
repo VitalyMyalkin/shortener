@@ -85,7 +85,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
-		Producer, err := storage.NewProducer(fileName)
+		Producer, err := storage.NewProducer("hello.txt")
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 		}
@@ -141,12 +141,12 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 	var original string
 	
 	original = newApp.Storage.Storage[c.Param("id")]
-	
+
 	if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
 		defer os.Remove(fileName)
 
-		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
+		file, err := os.OpenFile("hello.txt", os.O_RDONLY|os.O_CREATE, 0666)
 		if err != nil {
 			logger.Log.Fatal("не создан или не открылся файл записи")
 		}
@@ -171,10 +171,6 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 		}
 	}
 
-	if original != "" {
-		c.Header("Location", original)
-		c.Status(http.StatusTemporaryRedirect)
-	} else {
-		c.Status(http.StatusNotFound)
-	}
+	c.Header("Location", original)
+	c.Status(http.StatusTemporaryRedirect)
 }
