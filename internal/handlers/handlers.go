@@ -39,7 +39,6 @@ func NewApp() *App {
 
 func (newApp *App) AddOriginFile(url *url.URL) {
 	fileName := newApp.Cfg.FilePath
-
 	Producer, err := storage.NewFileWriter(fileName)
 	if err != nil {
 		logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
