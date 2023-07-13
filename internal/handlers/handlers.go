@@ -69,7 +69,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 	} else {
 		newApp.AddOriginFile(url)
 	}
-	c.Header("content-type", "text/plain")
+	c.Header("Content-Type", "text/plain")
 	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
 }
 
@@ -94,7 +94,7 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 	} else {
 		newApp.AddOriginFile(url)
 	}
-	c.Header("content-type", "application/json")
+	c.Header("Content-Type", "application/json")
 
 	c.JSON(http.StatusCreated, gin.H{
 		"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
