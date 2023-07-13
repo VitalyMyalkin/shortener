@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,9 +59,8 @@ func GzipMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		// проверяем, что клиент умеет получать от сервера сжатые данные в формате gzip
-		acceptEncoding := c.Request.Header.Get("Accept-Encoding")
-		supportsGzip := strings.Contains(acceptEncoding, "gzip")
-		if supportsGzip {
+		contentType := c.Request.Header.Get("Content-Type")
+		if (contentType == "application/json" || contentType == "text/html") {
 			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
 			gz, err := gzip.NewWriterLevel(c.Writer, gzip.DefaultCompression)
 			if err != nil {
@@ -80,8 +78,7 @@ func GzipMiddleware() gin.HandlerFunc {
 
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
 		contentEncoding := c.Request.Header.Get("Content-Encoding")
-		sendsGzip := strings.Contains(contentEncoding, "gzip")
-		if sendsGzip {
+		if contentEncoding == "gzip" {
 			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
 			cr, err := NewCompressReader(c.Request.Body)
 			if err != nil {

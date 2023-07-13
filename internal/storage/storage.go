@@ -30,22 +30,22 @@ type ShortenedURL struct {
     OriginalURL    string `json:"original_url"`
 }
 
-type Producer struct {
+type FileWriter struct {
     file    *os.File
 }
 
-func NewProducer(fileName string) (*Producer, error) {
+func NewFileWriter(fileName string) (*FileWriter, error) {
     file, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0777)
     if err != nil {
         return nil, err
     }
 
-    return &Producer{
+    return &FileWriter{
         file:    file,
     }, nil
 }
 
-func (p *Producer) WriteShortenedURL(short string, url *url.URL) error {
+func (p *FileWriter) WriteShortenedURL(short string, url *url.URL) error {
     
 	shortenedURL := ShortenedURL{
 		ID:     short,
@@ -63,7 +63,7 @@ func (p *Producer) WriteShortenedURL(short string, url *url.URL) error {
     return err
 }
 
-func (p *Producer) Close() error {
+func (p *FileWriter) Close() error {
     return p.file.Close()
 }
 

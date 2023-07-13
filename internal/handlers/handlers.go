@@ -1,20 +1,17 @@
 package handlers
 
 import (
-	"compress/gzip"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"bufio"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/VitalyMyalkin/shortener/internal/compress"
 	"github.com/VitalyMyalkin/shortener/internal/config"
 	"github.com/VitalyMyalkin/shortener/internal/logger"
 	"github.com/VitalyMyalkin/shortener/internal/storage"
@@ -31,11 +28,8 @@ type Request struct {
 }
 
 func NewApp() *App {
-
 	cfg := config.GetConfig()
-
 	storage := storage.NewStorage()
-
 	return &App{
 		Cfg:     cfg,
 		Storage: storage,
@@ -43,34 +37,26 @@ func NewApp() *App {
 	}
 }
 
-func (newApp *App) GetShortened(c *gin.Context) {
+func (newApp *App) AddOriginFile(url *url.URL) {
+	fileName := newApp.Cfg.FilePath
 
-	contentEncoding := c.Request.Header.Get("Content-Encoding")
-	sendsGzip := strings.Contains(contentEncoding, "gzip")
-	if sendsGzip {
-		// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
-		cr, err := compress.NewCompressReader(c.Request.Body)
-		if err != nil {
-			c.Writer.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		// меняем тело запроса на новое
-		c.Request.Body = cr
+	Producer, err := storage.NewFileWriter(fileName)
+	if err != nil {
+		logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
 	}
+	defer Producer.Close()
+	if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
+		logger.Log.Fatal("запись не внесена в файл")
+	}
+}
+
+
+func (newApp *App) GetShortened(c *gin.Context) {
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		gz, err := gzip.NewReader(c.Request.Body)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err,
-			})
-		}
-		body, err = io.ReadAll(gz)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": err,
-			})
-		}
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err,
+		})
 	}
 	url, err := url.ParseRequestURI(string(body))
 	if err != nil {
@@ -82,23 +68,13 @@ func (newApp *App) GetShortened(c *gin.Context) {
 	if newApp.Cfg.FilePath == "" {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	} else {
-		fileName := newApp.Cfg.FilePath
-
-		Producer, err := storage.NewProducer(fileName)
-		if err != nil {
-			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
-		}
-		defer Producer.Close()
-		if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
-			logger.Log.Fatal("запись не внесена в файл")
-		}
+		newApp.AddOriginFile(url)
 	}
 	c.Header("content-type", "text/plain")
 	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
 }
 
 func (newApp *App) GetShortenedAPI(c *gin.Context) {
-
 	// десериализуем запрос в структуру модели
 	logger.Log.Debug("decoding request")
 	var req Request
@@ -117,16 +93,7 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 	if newApp.Cfg.FilePath == "" {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	} else {
-		fileName := newApp.Cfg.FilePath
-
-		Producer, err := storage.NewProducer(fileName)
-		if err != nil {
-			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
-		}
-		defer Producer.Close()
-		if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
-			logger.Log.Fatal("запись не внесена в файл")
-		}
+		newApp.AddOriginFile(url)
 	}
 	c.Header("content-type", "application/json")
 
