@@ -65,20 +65,23 @@ func (c *compressReader) Close() error {
 
 func GzipMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
-		gz, err := gzip.NewWriterLevel(c.Writer, gzip.DefaultCompression)
-		if err != nil {
-			io.WriteString(c.Writer, err.Error())
-			return
+
+		// проверка поддержки клиентом работы с данными, сжатыми в формате gzip
+		if c.Request.Header.Get("Accept-Encoding") == "gzip" {
+			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
+			gz, err := gzip.NewWriterLevel(c.Writer, gzip.DefaultCompression)
+			if err != nil {
+				io.WriteString(c.Writer, err.Error())
+				return
+			}
+			c.Writer = &gzipWriter{c.Writer, gz}
+			
+			defer gz.Close()
+			c.Next()
 		}
-		c.Writer = &gzipWriter{c.Writer, gz}
-		
-		defer gz.Close()
-		c.Next()
 
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
-		contentEncoding := c.Request.Header.Get("Content-Encoding")
-		if contentEncoding == "gzip" {
+		if c.Request.Header.Get("Content-Encoding") == "gzip" {
 			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
 			cr, err := NewCompressReader(c.Request.Body)
 			if err != nil {
