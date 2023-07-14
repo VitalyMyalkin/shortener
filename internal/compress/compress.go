@@ -26,7 +26,7 @@ func (g *gzipWriter) Write(data []byte) (int, error) {
 		g.ResponseWriter.WriteHeader(200)
 		return g.writer.Write(data)
 	}
-	return g.ResponseWriter.Write(data)
+	return g.writer.Write(data)
 }
 
 func (g *gzipWriter) Close() error {
