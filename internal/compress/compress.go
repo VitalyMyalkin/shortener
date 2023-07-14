@@ -27,6 +27,7 @@ func (g *gzipWriter) Header() http.Header {
 func (g *gzipWriter) WriteHeader(statusCode int) {
     if statusCode < 300 {
         g.ResponseWriter.Header().Set("Content-Encoding", "gzip")
+		g.ResponseWriter.Header().Set("Vary", "Accept-Encoding")
     }
     g.ResponseWriter.WriteHeader(statusCode)
 }
@@ -34,9 +35,9 @@ func (g *gzipWriter) WriteHeader(statusCode int) {
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	contentType := g.ResponseWriter.Header().Get("Content-Type")
 	if (contentType == "application/json" || contentType == "text/html") {
-		g.ResponseWriter.Header().Set("Content-Encoding", "gzip")
-		g.ResponseWriter.Header().Set("Vary", "Accept-Encoding")
-		g.ResponseWriter.WriteHeader(200)
+		g.Header().Set("Content-Encoding", "gzip")
+		g.Header().Set("Vary", "Accept-Encoding")
+		g.WriteHeader(200)
 		return g.writer.Write(data)
 	}
 	return g.ResponseWriter.Write(data)
