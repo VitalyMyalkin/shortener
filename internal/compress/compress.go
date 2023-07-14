@@ -14,16 +14,15 @@ type gzipWriter struct {
 	writer *gzip.Writer
 }
 
+
+
 func (g *gzipWriter) WriteString(s string) (int, error) {
 	return g.writer.Write([]byte(s))
 }
 
 func (g *gzipWriter) Write(data []byte) (int, error) {
-	contentType := g.Header().Get("Content-Type")
+	contentType := g.ResponseWriter.Header().Get("Content-Type")
 	if (contentType == "application/json" || contentType == "text/html") {
-		g.ResponseWriter.Header().Set("Content-Encoding", "gzip")
-		g.ResponseWriter.Header().Set("Vary", "Accept-Encoding")
-		g.ResponseWriter.WriteHeader(200)
 		return g.writer.Write(data)
 	}
 	return g.ResponseWriter.Write(data)
@@ -72,6 +71,9 @@ func GzipMiddleware() gin.HandlerFunc {
 			gz := gzip.NewWriter(c.Writer)
 			
 			c.Writer = &gzipWriter{c.Writer, gz}
+
+			c.Header("Content-Encoding", "gzip")
+			c.Header("Vary", "Accept-Encoding")
 
 			// не забываем отправить клиенту все сжатые данные после завершения middleware
 			defer gz.Close()
