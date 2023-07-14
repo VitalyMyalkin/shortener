@@ -21,7 +21,6 @@ func (g *gzipWriter) WriteString(s string) (int, error) {
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	contentType := g.Header().Get("Content-Type")
 	if (contentType == "application/json" || contentType == "text/html") {
-		// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
 		g.ResponseWriter.Header().Set("Content-Encoding", "gzip")
 		g.ResponseWriter.Header().Set("Vary", "Accept-Encoding")
 		g.ResponseWriter.WriteHeader(200)
@@ -67,13 +66,8 @@ func (c *compressReader) Close() error {
 func GzipMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		// проверка поддержки клиентом работы с данными, сжатыми в формате gzip
-        if !strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") {
-            // если gzip не поддерживается, передаём управление
-            // дальше без изменений
-            c.Next()
-            return
-        } else {
+		// проверяем, что клиент умеет получать от сервера сжатые данные в формате gzip
+		if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip")  {
 			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
 			gz, err := gzip.NewWriterLevel(c.Writer, gzip.DefaultCompression)
 			if err != nil {
@@ -81,13 +75,15 @@ func GzipMiddleware() gin.HandlerFunc {
 				return
 			}
 			c.Writer = &gzipWriter{c.Writer, gz}
-			
+
+			// не забываем отправить клиенту все сжатые данные после завершения middleware
 			defer gz.Close()
 			c.Next()
 		}
 
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
-		if c.Request.Header.Get("Content-Encoding") == "gzip" {
+		contentEncoding := c.Request.Header.Get("Content-Encoding")
+		if contentEncoding == "gzip" {
 			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
 			cr, err := NewCompressReader(c.Request.Body)
 			if err != nil {
