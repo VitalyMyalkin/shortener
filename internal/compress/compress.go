@@ -26,7 +26,7 @@ func (g *gzipWriter) Header() http.Header {
 
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	contentType := g.ResponseWriter.Header().Get("Content-Type")
-	if (contentType == "application/json" || contentType == "text/html" || contentType == "text/plain") {
+	if (contentType == "application/json" || contentType == "text/html") {
 		g.Header().Set("Content-Encoding", "gzip")
 		return g.writer.Write(data)
 	}
@@ -71,7 +71,7 @@ func GzipMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
 		// проверяем, что клиент умеет получать от сервера сжатые данные в формате gzip
-		if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip")  {
+		if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip") && (c.Request.Header.Get("Content-Type") != "text/plain") {
 			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
 			gz := gzip.NewWriter(c.Writer)
 			
