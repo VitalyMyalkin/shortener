@@ -76,6 +76,8 @@ func GzipMiddleware() gin.HandlerFunc {
 		if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip")  {
 			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
 			gz := gzip.NewWriter(c.Writer)
+
+			gz.Reset(c.Writer)
 			
 			c.Writer = &gzipWriter{c.Writer, gz}
 
