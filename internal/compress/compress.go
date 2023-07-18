@@ -25,10 +25,6 @@ func (g *gzipWriter) Header() http.Header {
 }
 
 func (g *gzipWriter) WriteHeader(statusCode int) {
-    if statusCode < 300 {
-        g.ResponseWriter.Header().Set("Content-Encoding", "gzip")
-		g.ResponseWriter.Header().Set("Vary", "Accept-Encoding")
-    }
     g.ResponseWriter.WriteHeader(statusCode)
 }
 
@@ -39,8 +35,9 @@ func (g *gzipWriter) Write(data []byte) (int, error) {
 		g.Header().Set("Vary", "Accept-Encoding")
 		g.WriteHeader(200)
 		return g.writer.Write(data)
-	}
+	} else {
 	return g.ResponseWriter.Write(data)
+	}
 }
 
 func (g *gzipWriter) Close() error {
@@ -89,7 +86,6 @@ func GzipMiddleware() gin.HandlerFunc {
 
 			// не забываем отправить клиенту все сжатые данные после завершения middleware
 			defer gz.Close()
-			c.Next()
 		} 
 
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
@@ -104,7 +100,7 @@ func GzipMiddleware() gin.HandlerFunc {
 			// меняем тело запроса на новое
 			c.Request.Body = cr
 			defer cr.Close()
-			c.Next()
 		}
+		c.Next()
 	}
 }
