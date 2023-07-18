@@ -24,16 +24,11 @@ func (g *gzipWriter) Header() http.Header {
     return g.ResponseWriter.Header()
 }
 
-func (g *gzipWriter) WriteHeader(statusCode int) {
-    g.ResponseWriter.WriteHeader(statusCode)
-}
-
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	contentType := g.ResponseWriter.Header().Get("Content-Type")
 	if (contentType == "application/json" || contentType == "text/html") {
 		g.Header().Set("Content-Encoding", "gzip")
 		g.Header().Set("Vary", "Accept-Encoding")
-		g.WriteHeader(200)
 		return g.writer.Write(data)
 	} else {
 		return g.ResponseWriter.Write(data)
