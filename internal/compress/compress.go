@@ -26,7 +26,7 @@ func (g *gzipWriter) Header() http.Header {
 
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	contentType := g.ResponseWriter.Header().Get("Content-Type")
-	if (contentType == "application/json" || contentType == "text/html" || contentType == "text/plain") {
+	if (contentType == "application/json" || contentType == "text/html") {
 		g.Header().Set("Content-Encoding", "gzip")
 		g.Header().Set("Vary", "Accept-Encoding")
 		return g.writer.Write(data)
