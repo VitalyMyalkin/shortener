@@ -36,7 +36,7 @@ func (g *gzipWriter) Write(data []byte) (int, error) {
 		g.WriteHeader(200)
 		return g.writer.Write(data)
 	} else {
-	return g.ResponseWriter.Write(data)
+		return g.ResponseWriter.Write(data)
 	}
 }
 
@@ -77,6 +77,7 @@ func (c *compressReader) Close() error {
 func GzipMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
+		contentEncoding := c.Request.Header.Get("Content-Encoding")
 		// проверяем, что клиент умеет получать от сервера сжатые данные в формате gzip
 		if strings.Contains(c.Request.Header.Get("Accept-Encoding"), "gzip")  {
 			// оборачиваем оригинальный http.ResponseWriter новым с поддержкой сжатия
@@ -86,11 +87,9 @@ func GzipMiddleware() gin.HandlerFunc {
 
 			// не забываем отправить клиенту все сжатые данные после завершения middleware
 			defer gz.Close()
-		} 
-
+			c.Next()
+		} else if contentEncoding == "gzip" {
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
-		contentEncoding := c.Request.Header.Get("Content-Encoding")
-		if contentEncoding == "gzip" {
 			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
 			cr, err := NewCompressReader(c.Request.Body)
 			if err != nil {
@@ -100,7 +99,9 @@ func GzipMiddleware() gin.HandlerFunc {
 			// меняем тело запроса на новое
 			c.Request.Body = cr
 			defer cr.Close()
+			c.Next()
+		} else {
+			c.Next()
 		}
-		c.Next()
 	}
 }
