@@ -30,7 +30,10 @@ func (g *gzipWriter) WriteHeader(statusCode int) {
 
 func (g *gzipWriter) Write(data []byte) (int, error) {
 	contentType := g.ResponseWriter.Header().Get("Content-Type")
-	if (contentType == "application/json" || contentType == "text/html") {
+	if (contentType == "application/json" || contentType == "text/html" || contentType == "text/plain") {
+		g.Header().Set("Content-Encoding", "gzip")
+		g.Header().Set("Vary", "Accept-Encoding")
+		g.WriteHeader(200)
 		return g.writer.Write(data)
 	} else {
 		return g.ResponseWriter.Write(data)
@@ -80,9 +83,7 @@ func GzipMiddleware() gin.HandlerFunc {
 			gz := gzip.NewWriter(c.Writer)
 			
 			c.Writer = &gzipWriter{c.Writer, gz}
-			
-			c.Header("Content-Encoding", "gzip")
-			c.Header("Vary", "Accept-Encoding")
+
 			// не забываем отправить клиенту все сжатые данные после завершения middleware
 			defer gz.Close()
 			c.Next()
