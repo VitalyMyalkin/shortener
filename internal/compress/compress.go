@@ -78,7 +78,11 @@ func GzipMiddleware() gin.HandlerFunc {
 			c.Writer = &gzipWriter{c.Writer, gz}
 
 			// не забываем отправить клиенту все сжатые данные после завершения middleware
-			defer gz.Close()
+			defer func(){
+				if c.Writer.Header().Get("Content-Encoding") == "gzip"{
+					gz.Close()
+				}
+			}() 
 			c.Next()
 		} else if c.Request.Header.Get("Content-Encoding") == "gzip" {
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
