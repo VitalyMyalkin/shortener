@@ -83,6 +83,7 @@ func GzipMiddleware() gin.HandlerFunc {
 					gz.Close()
 				}
 			}() 
+			
 			c.Next()
 		} else if c.Request.Header.Get("Content-Encoding") == "gzip" {
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
