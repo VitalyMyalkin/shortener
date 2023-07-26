@@ -83,9 +83,8 @@ func GzipMiddleware() gin.HandlerFunc {
 					gz.Close()
 				}
 			}() 
-			
-			c.Next()
-		} else if c.Request.Header.Get("Content-Encoding") == "gzip" {
+		} 
+		if c.Request.Header.Get("Content-Encoding") == "gzip" {
 		// проверяем, что клиент отправил серверу сжатые данные в формате gzip
 			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
 			cr, err := NewCompressReader(c.Request.Body)
@@ -96,9 +95,7 @@ func GzipMiddleware() gin.HandlerFunc {
 			// меняем тело запроса на новое
 			c.Request.Body = cr
 			defer cr.Close()
-			c.Next()
-		} else {
-			c.Next()
 		}
+		c.Next()
 	}
 }
