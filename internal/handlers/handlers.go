@@ -8,6 +8,9 @@ import (
 	"os"
 	"strconv"
 	"bufio"
+	"context"
+	"database/sql"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -21,6 +24,7 @@ type App struct {
 	Cfg     config.Config
 	Storage *storage.Storage
 	short   int
+	PostgresDB *sql.DB		
 }
 
 type Request struct {
@@ -30,10 +34,24 @@ type Request struct {
 func NewApp() *App {
 	cfg := config.GetConfig()
 	storage := storage.NewStorage()
+	db, err := sql.Open("pgx", cfg.PostgresDBAddr)
+    if err != nil {
+        fmt.Println(err)
+    }
+    defer db.Close()
 	return &App{
 		Cfg:     cfg,
 		Storage: storage,
 		short:   0,
+		PostgresDB: db,
+	}
+}
+
+func (newApp *App) PingPostgresDB(c *gin.Context) {
+	if err := newApp.PostgresDB.PingContext(context.Background()); err != nil {
+        c.Status(http.StatusInternalServerError)
+    } else {
+		c.Status(http.StatusOK)
 	}
 }
 

@@ -22,6 +22,7 @@ func main() {
 	router.POST("/", newApp.GetShortened)
 	router.POST("/api/shorten", newApp.GetShortenedAPI)
 	router.GET("/:id", newApp.GetOrigin)
+	router.GET("/ping", newApp.PingPostgresDB)
 
 	if err := router.Run(newApp.Cfg.RunAddr); err != nil {
 		fmt.Println(err)
