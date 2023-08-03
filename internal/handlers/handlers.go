@@ -11,6 +11,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -34,7 +35,7 @@ type Request struct {
 func NewApp() *App {
 	cfg := config.GetConfig()
 	storage := storage.NewStorage()
-	db, err := sql.Open("postgres", cfg.PostgresDBAddr)
+	db, err := sql.Open("pgx", cfg.PostgresDBAddr)
     if err != nil {
         fmt.Println(err)
     }
@@ -82,6 +83,7 @@ func (newApp *App) GetShortened(c *gin.Context) {
 		})
 	}
 	newApp.short += 1
+
 	if newApp.Cfg.FilePath == "" {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	} else {
