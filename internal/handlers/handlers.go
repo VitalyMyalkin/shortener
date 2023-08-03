@@ -34,7 +34,7 @@ type Request struct {
 func NewApp() *App {
 	cfg := config.GetConfig()
 	storage := storage.NewStorage()
-	db, err := sql.Open("pgx", cfg.PostgresDBAddr)
+	db, err := sql.Open("postgres", cfg.PostgresDBAddr)
     if err != nil {
         fmt.Println(err)
     }
