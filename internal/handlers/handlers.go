@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"time"
 	"fmt"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -56,15 +57,28 @@ func (newApp *App) PingPostgresDB(c *gin.Context) {
 	}
 }
 
-func (newApp *App) AddOriginFile(url *url.URL) {
-	fileName := newApp.Cfg.FilePath
-	Producer, err := storage.NewFileWriter(fileName)
-	if err != nil {
-		logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
-	}
-	defer Producer.Close()
-	if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
-		logger.Log.Fatal("запись не внесена в файл")
+func (newApp *App) AddOrigin(url *url.URL) {
+	if newApp.Cfg.PostgresDBAddr != "" {
+		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT, shortened TEXT)")
+		if err != nil {
+			logger.Log.Fatal("не создана или не открылась база данных" + newApp.Cfg.PostgresDBAddr)
+		}
+		_, err = newApp.PostgresDB.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url, strconv.Itoa(newApp.short))
+		if err != nil {
+			logger.Log.Fatal("запись не внесена в базу данных" + newApp.Cfg.PostgresDBAddr)
+		}
+	} else if newApp.Cfg.FilePath != "" {
+		fileName := newApp.Cfg.FilePath
+		Producer, err := storage.NewFileWriter(fileName)
+		if err != nil {
+			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
+		}
+		defer Producer.Close()
+		if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
+			logger.Log.Fatal("запись не внесена в файл" + fileName)
+		}
+	} else {
+		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	}
 }
 
@@ -84,11 +98,8 @@ func (newApp *App) GetShortened(c *gin.Context) {
 	}
 	newApp.short += 1
 
-	if newApp.Cfg.FilePath == "" {
-		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
-	} else {
-		newApp.AddOriginFile(url)
-	}
+	newApp.AddOrigin(url)
+
 	c.Header("Content-Type", "text/plain")
 	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
 }
@@ -109,13 +120,10 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 		c.String(http.StatusBadRequest, "")
 	}
 	newApp.short += 1
-	if newApp.Cfg.FilePath == "" {
-		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
-	} else {
-		newApp.AddOriginFile(url)
-	}
-	c.Header("Content-Type", "application/json")
 
+	newApp.AddOrigin(url)
+
+	c.Header("Content-Type", "application/json")
 	c.JSON(http.StatusCreated, gin.H{
 		"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
 	})
@@ -151,6 +159,18 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 				}
 			}
 		}
+	}
+
+	if newApp.Cfg.PostgresDBAddr != "" {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+    	defer cancel()
+    	// делаем обращение к db в рамках полученного контекста
+    	row := newApp.PostgresDB.QueryRowContext(ctx, "SELECT original FROM urls WHERE shortened = $1", c.Param("id"))
+    	// готовим переменную для чтения результата
+    	err := row.Scan(&original)  // разбираем результат
+    	if err != nil {
+        	logger.Log.Fatal("невозможно прочитать данные записи из базы данных")
+    	}
 	}
 
 	c.Header("Location", original)
