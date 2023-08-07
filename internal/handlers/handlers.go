@@ -61,11 +61,11 @@ func (newApp *App) AddOrigin(url *url.URL) {
 	if newApp.Cfg.PostgresDBAddr != "" {
 		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT, shortened TEXT)")
 		if err != nil {
-			logger.Log.Fatal("не создана или не открылась база данных" + newApp.Cfg.PostgresDBAddr)
+			logger.Log.Fatal("не создана или не открылась таблица urls" + newApp.Cfg.PostgresDBAddr)
 		}
-		_, err = newApp.PostgresDB.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url, strconv.Itoa(newApp.short))
+		_, err = newApp.PostgresDB.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url.String(), strconv.Itoa(newApp.short))
 		if err != nil {
-			logger.Log.Fatal("запись не внесена в базу данных" + newApp.Cfg.PostgresDBAddr)
+			logger.Log.Fatal("запись не внесена в таблицу urls базы данных" + newApp.Cfg.PostgresDBAddr)
 		}
 	} else if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
