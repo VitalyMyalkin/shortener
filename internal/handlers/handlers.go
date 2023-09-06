@@ -33,6 +33,20 @@ type Request struct {
 	URLstring string `json:"url"`
 }
 
+type URLwithID struct {
+	ID string `json:"correlation_id"`
+	URL string `json:"original_url"`
+}
+
+func (u *URLwithID) MarshalJSON() ([]byte, error) {
+    type alias struct {
+        ID   string  `json:"correlation_id"`
+        URL string `json:"short_url"`
+    }
+    var a alias = alias(*u)
+    return json.Marshal(&a)
+}
+
 func NewApp() *App {
 	cfg := config.GetConfig()
 	storage := storage.NewStorage()
@@ -104,7 +118,68 @@ func (newApp *App) GetShortened(c *gin.Context) {
 	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
 }
 
-func (newApp *App) GetShortenedAPI(c *gin.Context) {
+func (newApp *App) SendBatch (c *gin.Context) {
+	// десериализуем запрос 
+	logger.Log.Debug("decoding request")
+	var urls []URLwithID
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err,
+		})
+	}
+
+	json.Unmarshal([]byte(body), &urls)
+
+	if newApp.Cfg.PostgresDBAddr != "" {
+		// начинаю транзакцию
+		tx, err := newApp.PostgresDB.BeginTx(context.Background(), nil)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err,
+			})
+		}
+		
+		for _, v := range urls {
+			if v.ID !="" && v.URL !="" {
+				newApp.short += 1
+				// все изменения записываются в транзакцию
+				_, err := tx.ExecContext(context.Background(), 
+				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", v.URL, strconv.Itoa(newApp.short))
+				if err != nil {
+					// если ошибка, то откатываем изменения
+					tx.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": err,
+					})
+				}
+				v.URL = strconv.Itoa(newApp.short)
+			}
+		}
+
+		// коммитим транзакцию
+		tx.Commit()
+	} else {
+		for _, v := range urls {
+			if v.ID !="" && v.URL !="" {
+				url, err := url.ParseRequestURI(v.URL)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": string(body) + "не является валидным URL",
+					})
+				}
+				newApp.short += 1
+				newApp.AddOrigin(url)
+				v.URL = strconv.Itoa(newApp.short)
+			}
+		}
+	}
+
+	c.Header("Content-Type", "application/json")
+	c.JSON(http.StatusCreated, urls)
+}
+
+func (newApp *App) GetShortenedAPI (c *gin.Context) {
 	// десериализуем запрос в структуру модели
 	logger.Log.Debug("decoding request")
 	var req Request
