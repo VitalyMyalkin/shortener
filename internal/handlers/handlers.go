@@ -38,14 +38,16 @@ type URLwithID struct {
 	URL string `json:"original_url"`
 }
 
-func (u *URLwithID) MarshalJSON() ([]byte, error) {
-    type alias struct {
-        ID   string  `json:"correlation_id"`
-        URL string `json:"short_url"`
-    }
-    var a alias 
-	a = alias(*u)
-    return json.Marshal(&a)
+func (u URLwithID) MarshalJSON() ([]byte, error) {
+    type URLwithIDalias URLwithID
+	
+	aliasURL := struct {
+        URLwithIDalias
+		URL string `json:"short_url"`
+    }{
+		URLwithIDalias: URLwithIDalias(u),
+	}
+    return json.Marshal(aliasURL)
 }
 
 func NewApp() *App {
