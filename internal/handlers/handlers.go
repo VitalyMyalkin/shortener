@@ -43,7 +43,8 @@ func (u *URLwithID) MarshalJSON() ([]byte, error) {
         ID   string  `json:"correlation_id"`
         URL string `json:"short_url"`
     }
-    var a alias = alias(*u)
+    var a alias 
+	a = alias(*u)
     return json.Marshal(&a)
 }
 
