@@ -237,10 +237,18 @@ func (newApp *App) GetShortenedAPI (c *gin.Context) {
 
 func (newApp *App) GetOrigin(c *gin.Context) {
 	var original string
-	
-	original = newApp.Storage.Storage[c.Param("id")]
 
-	if newApp.Cfg.FilePath != "" {
+	if newApp.Cfg.PostgresDBAddr != "" {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+    	defer cancel()
+    	// делаем обращение к db в рамках полученного контекста
+    	row := newApp.PostgresDB.QueryRowContext(ctx, "SELECT origin FROM urls WHERE shortened = $1", c.Param("id"))
+    	// готовим переменную для чтения результата
+    	err := row.Scan(&original)  // разбираем результат
+    	if err != nil {
+        	logger.Log.Fatal("невозможно прочитать данные записи из базы данных")
+    	}
+	} else if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
 
 		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
@@ -265,18 +273,8 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 				}
 			}
 		}
-	}
-
-	if newApp.Cfg.PostgresDBAddr != "" {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
-    	defer cancel()
-    	// делаем обращение к db в рамках полученного контекста
-    	row := newApp.PostgresDB.QueryRowContext(ctx, "SELECT original FROM urls WHERE shortened = $1", c.Param("id"))
-    	// готовим переменную для чтения результата
-    	err := row.Scan(&original)  // разбираем результат
-    	if err != nil {
-        	logger.Log.Fatal("невозможно прочитать данные записи из базы данных")
-    	}
+	} else {
+		original = newApp.Storage.Storage[c.Param("id")]
 	}
 
 	c.Header("Location", original)
