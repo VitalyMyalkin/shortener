@@ -6,14 +6,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"errors"
 	"strconv"
 	"bufio"
 	"context"
 	"database/sql"
 	"time"
 	"fmt"
-	_ "github.com/jackc/pgx/v5/stdlib"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
@@ -74,15 +77,26 @@ func (newApp *App) PingPostgresDB(c *gin.Context) {
 	}
 }
 
-func (newApp *App) AddOrigin(url *url.URL) {
+func (newApp *App) AddOrigin(url *url.URL) error {
+	var err error
 	if newApp.Cfg.PostgresDBAddr != "" {
-		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT, shortened TEXT)")
+		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT, shortened TEXT, UNIQUE(origin))")
 		if err != nil {
 			logger.Log.Fatal("не создана или не открылась таблица urls" + newApp.Cfg.PostgresDBAddr)
 		}
 		_, err = newApp.PostgresDB.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url.String(), strconv.Itoa(newApp.short))
 		if err != nil {
-			logger.Log.Fatal("запись не внесена в таблицу urls базы данных" + newApp.Cfg.PostgresDBAddr)
+			var pgErr *pgconn.PgError
+        	if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
+				var a string
+				newApp.PostgresDB.QueryRow("SELECT shortened FROM urls WHERE origin = $1", url.String()).Scan(&a)
+				var erro error
+				newApp.short, erro = strconv.Atoi(a)
+				if erro != nil {
+					logger.Log.Fatal("в базе какая-то странная запись"+a)
+				}
+			}
+			return err
 		}
 	} else if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
@@ -97,10 +111,12 @@ func (newApp *App) AddOrigin(url *url.URL) {
 	} else {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	}
+	return err
 }
 
 
 func (newApp *App) GetShortened(c *gin.Context) {
+	var pgErr *pgconn.PgError
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -115,10 +131,15 @@ func (newApp *App) GetShortened(c *gin.Context) {
 	}
 	newApp.short += 1
 
-	newApp.AddOrigin(url)
+	err = newApp.AddOrigin(url)
 
-	c.Header("Content-Type", "text/plain")
-	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
+	if err == nil {
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
+	} else if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusConflict, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
+	}
 }
 
 func (newApp *App) SendBatch (c *gin.Context) {
@@ -183,6 +204,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 }
 
 func (newApp *App) GetShortenedAPI (c *gin.Context) {
+	var pgErr *pgconn.PgError
 	// десериализуем запрос в структуру модели
 	logger.Log.Debug("decoding request")
 	var req Request
@@ -199,12 +221,19 @@ func (newApp *App) GetShortenedAPI (c *gin.Context) {
 	}
 	newApp.short += 1
 
-	newApp.AddOrigin(url)
+	err = newApp.AddOrigin(url)
 
-	c.Header("Content-Type", "application/json")
-	c.JSON(http.StatusCreated, gin.H{
-		"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
-	})
+	if err == nil {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusCreated, gin.H{
+			"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
+		})
+	} else if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusConflict, gin.H{
+			"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
+		})
+	}
 }
 
 func (newApp *App) GetOrigin(c *gin.Context) {
