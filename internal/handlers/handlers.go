@@ -82,9 +82,9 @@ func (newApp *App) AddOrigin(url *url.URL) (int, error) {
 	newApp.short += 1
 
 	if newApp.Cfg.PostgresDBAddr != "" {
-		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT, shortened TEXT, UNIQUE(origin))")
+		_, err := newApp.PostgresDB.Exec("CREATE TABLE urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
 		if err != nil {
-			logger.Log.Fatal("не создана или не открылась таблица urls" + newApp.Cfg.PostgresDBAddr)
+			logger.Log.Fatal("не создана таблица urls" + newApp.Cfg.PostgresDBAddr)
 		}
 		_, err = newApp.PostgresDB.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url.String(), strconv.Itoa(newApp.short))
 		if err != nil {
