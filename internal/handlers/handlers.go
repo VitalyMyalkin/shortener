@@ -76,8 +76,10 @@ func (newApp *App) PingPostgresDB(c *gin.Context) {
 	}
 }
 
-func (newApp *App) AddOrigin(url *url.URL) error {
+func (newApp *App) AddOrigin(url *url.URL) (int, error) {
 	var err error
+	newApp.short += 1
+
 	if newApp.Cfg.PostgresDBAddr != "" {
 		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT, shortened TEXT, UNIQUE(origin))")
 		if err != nil {
@@ -88,14 +90,17 @@ func (newApp *App) AddOrigin(url *url.URL) error {
 			var pgErr *pgconn.PgError
         	if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
 				var a string
-				newApp.PostgresDB.QueryRow("SELECT shortened FROM urls WHERE origin = $1", url.String()).Scan(&a)
 				var erro error
-				newApp.short, erro = strconv.Atoi(a)
+				var result int
+				newApp.PostgresDB.QueryRow("SELECT shortened FROM urls WHERE origin = $1", url.String()).Scan(&a)
+				newApp.short -= 1
+				result, erro = strconv.Atoi(a)
 				if erro != nil {
 					logger.Log.Fatal("в базе какая-то странная запись"+a)
 				}
+				return result, err
 			}
-			return err
+			logger.Log.Fatal("возникла другая ошибка при записи ссылки в бд")
 		}
 	} else if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
@@ -110,12 +115,13 @@ func (newApp *App) AddOrigin(url *url.URL) error {
 	} else {
 		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
 	}
-	return err
+	return newApp.short, err
 }
 
 
 func (newApp *App) GetShortened(c *gin.Context) {
 	var pgErr *pgconn.PgError
+	var result int
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -128,16 +134,15 @@ func (newApp *App) GetShortened(c *gin.Context) {
 			"error": string(body) + "не является валидным URL",
 		})
 	}
-	newApp.short += 1
 
-	err = newApp.AddOrigin(url)
+	result, err = newApp.AddOrigin(url)
 
 	if err == nil {
 		c.Header("Content-Type", "text/plain")
-		c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
+		c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(result))
 	} else if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
 		c.Header("Content-Type", "text/plain")
-		c.String(http.StatusConflict, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
+		c.String(http.StatusConflict, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(result))
 	}
 }
 
@@ -204,6 +209,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 
 func (newApp *App) GetShortenedAPI (c *gin.Context) {
 	var pgErr *pgconn.PgError
+	var result int
 	// десериализуем запрос в структуру модели
 	logger.Log.Debug("decoding request")
 	var req Request
@@ -218,19 +224,18 @@ func (newApp *App) GetShortenedAPI (c *gin.Context) {
 		logger.Log.Debug(req.URLstring+"не является валидным URL", zap.Error(err))
 		c.String(http.StatusBadRequest, "")
 	}
-	newApp.short += 1
 
-	err = newApp.AddOrigin(url)
+	result, err = newApp.AddOrigin(url)
 
 	if err == nil {
 		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusCreated, gin.H{
-			"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
+			"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(result),
 		})
 	} else if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
 		c.Header("Content-Type", "application/json")
 		c.JSON(http.StatusConflict, gin.H{
-			"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
+			"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(result),
 		})
 	}
 }
