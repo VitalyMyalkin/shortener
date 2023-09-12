@@ -20,7 +20,7 @@ func GetConfig() Config {
 	flag.StringVar(&cfg.RunAddr, "a", "localhost:8080", "address and port to run server")
 	flag.StringVar(&cfg.ShortenAddr, "b", "http://localhost:8080", "default part of shortened URL")
 	flag.StringVar(&cfg.FilePath, "f", "/tmp/short-url-db.json", "default path to save shortened URL")
-	flag.StringVar(&cfg.PostgresDBAddr, "d", "", "default database path")
+	flag.StringVar(&cfg.PostgresDBAddr, "d", "host=localhost user=postgres password=postgres dbname=zen sslmode=disable", "default database path")
 	// парсим переданные серверу аргументы в зарегистрированные переменные
 	flag.Parse()
 
