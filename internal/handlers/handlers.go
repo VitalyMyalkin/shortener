@@ -12,6 +12,7 @@ import (
 	"context"
 	"database/sql"
 	"time"
+	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -55,10 +56,15 @@ func (u URLwithID) MarshalJSON() ([]byte, error) {
 func NewApp() *App {
 	cfg := config.GetConfig()
 	storage := storage.NewStorage()
+	db, err := sql.Open("pgx", cfg.PostgresDBAddr)
+    if err != nil {
+        fmt.Println(err)
+    }
 	return &App{
 		Cfg:     cfg,
 		Storage: storage,
 		short:   0,
+		PostgresDB: db,
 	}
 }
 
@@ -75,12 +81,7 @@ func (newApp *App) AddOrigin(url *url.URL) (int, error) {
 	newApp.short += 1
 
 	if newApp.Cfg.PostgresDBAddr != "" {
-		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
-		if err != nil {
-			logger.Log.Fatal(err.Error())
-		}
-		defer db.Close()
-		_, err = db.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
+		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
 		if err != nil {
 			logger.Log.Fatal(err.Error())
 		}
