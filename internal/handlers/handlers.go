@@ -39,18 +39,7 @@ type Request struct {
 type URLwithID struct {
 	ID string `json:"correlation_id"`
 	URL string `json:"original_url"`
-}
-
-func (u URLwithID) MarshalJSON() ([]byte, error) {
-    type URLwithIDalias URLwithID
-	
-	aliasURL := struct {
-        URLwithIDalias
-		URL string `json:"short_url"`
-    }{
-		URLwithIDalias: URLwithIDalias(u),
-	}
-    return json.Marshal(aliasURL)
+	Shortened string `json:"short_url"`
 }
 
 func NewApp() *App {
@@ -171,9 +160,10 @@ func (newApp *App) SendBatch (c *gin.Context) {
 		for _, v := range urls {
 			if v.ID !="" && v.URL !="" {
 				newApp.short += 1
+				v.Shortened = strconv.Itoa(newApp.short)
 				// все изменения записываются в транзакцию
 				_, err := tx.ExecContext(context.Background(), 
-				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", v.URL, strconv.Itoa(newApp.short))
+				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", v.URL, v.Shortened)
 				if err != nil {
 					// если ошибка, то откатываем изменения
 					tx.Rollback()
@@ -181,7 +171,6 @@ func (newApp *App) SendBatch (c *gin.Context) {
 						"error": err,
 					})
 				}
-				v.URL = strconv.Itoa(newApp.short)
 			}
 		}
 
@@ -198,13 +187,12 @@ func (newApp *App) SendBatch (c *gin.Context) {
 				}
 				newApp.short += 1
 				newApp.AddOrigin(url)
-				v.URL = strconv.Itoa(newApp.short)
+				v.Shortened = strconv.Itoa(newApp.short)
 			}
 		}
 	}
-
 	c.Header("Content-Type", "application/json")
-	c.JSON(http.StatusCreated, urls)
+	c.JSON(http.StatusCreated, &urls)
 }
 
 func (newApp *App) GetShortenedAPI (c *gin.Context) {
