@@ -157,13 +157,13 @@ func (newApp *App) SendBatch (c *gin.Context) {
 			})
 		}
 		
-		for _, v := range urls {
-			if v.ID !="" && v.URL !="" {
+		for i := 0; i < len(urls); i++ {
+			if urls[i].ID !="" && urls[i].URL !="" {
 				newApp.short += 1
-				v.Shortened = strconv.Itoa(newApp.short)
+				urls[i].Shortened = strconv.Itoa(newApp.short)
 				// все изменения записываются в транзакцию
 				_, err := tx.ExecContext(context.Background(), 
-				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", v.URL, v.Shortened)
+				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", urls[i].URL, urls[i].Shortened)
 				if err != nil {
 					// если ошибка, то откатываем изменения
 					tx.Rollback()
@@ -177,9 +177,9 @@ func (newApp *App) SendBatch (c *gin.Context) {
 		// коммитим транзакцию
 		tx.Commit()
 	} else {
-		for _, v := range urls {
-			if v.ID !="" && v.URL !="" {
-				url, err := url.ParseRequestURI(v.URL)
+		for i := 0; i < len(urls); i++  {
+			if urls[i].ID !="" && urls[i].URL !="" {
+				url, err := url.ParseRequestURI(urls[i].URL)
 				if err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{
 						"error": string(body) + "не является валидным URL",
@@ -187,7 +187,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 				}
 				newApp.short += 1
 				newApp.AddOrigin(url)
-				v.Shortened = strconv.Itoa(newApp.short)
+				urls[i].Shortened = strconv.Itoa(newApp.short)
 			}
 		}
 	}
