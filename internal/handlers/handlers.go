@@ -160,7 +160,6 @@ func (newApp *App) SendBatch (c *gin.Context) {
 		for i := 0; i < len(urls); i++ {
 			if urls[i].ID !="" && urls[i].URL !="" {
 				newApp.short += 1
-				urls[i].Shortened = strconv.Itoa(newApp.short)
 				// все изменения записываются в транзакцию
 				_, err := tx.ExecContext(context.Background(), 
 				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", urls[i].URL, strconv.Itoa(newApp.short))
