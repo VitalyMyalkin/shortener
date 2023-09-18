@@ -163,7 +163,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 				urls[i].Shortened = strconv.Itoa(newApp.short)
 				// все изменения записываются в транзакцию
 				_, err := tx.ExecContext(context.Background(), 
-				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", urls[i].URL, urls[i].Shortened)
+				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", urls[i].URL, strconv.Itoa(newApp.short))
 				if err != nil {
 					// если ошибка, то откатываем изменения
 					tx.Rollback()
@@ -171,6 +171,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 						"error": err,
 					})
 				}
+				urls[i].Shortened = newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short)
 			}
 		}
 
@@ -187,7 +188,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 				}
 				newApp.short += 1
 				newApp.AddOrigin(url)
-				urls[i].Shortened = strconv.Itoa(newApp.short)
+				urls[i].Shortened = newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short)
 			}
 		}
 	}
