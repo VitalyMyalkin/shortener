@@ -87,7 +87,7 @@ func Test_getShortenedAPI(t *testing.T) {
 		ShortenAddr: "http://localhost:8080",
 	}
 
-	short1 := `{"result":"http://localhost:8080/`+uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://practicum.yandex.ru/")).String()+`"}`
+	short1 := `{"result":"http://localhost:8080/`+uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://practicum.yandex.ru")).String()+`"}`
 	short2 := `{"result":"http://localhost:8080/`+uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://youtube.com/")).String()+`"}`
 
 	storage := storage.NewStorage()
