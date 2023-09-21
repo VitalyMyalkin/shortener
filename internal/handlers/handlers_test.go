@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,11 +24,13 @@ func Test_getShortened(t *testing.T) {
 		ShortenAddr: "http://localhost:8080",
 	}
 
+	short1 := uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://practicum.yandex.ru/")).String()
+	short2 := uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://youtube.com/")).String()
+
 	storage := storage.NewStorage()
 	newApp := App{
 		Cfg:     cfg,
 		Storage: storage,
-		short:   0,
 	}
 	r.POST("/", newApp.GetShortened)
 	type want struct {
@@ -44,7 +47,7 @@ func Test_getShortened(t *testing.T) {
 			origin: "https://practicum.yandex.ru/",
 			want: want{
 				code:     201,
-				response: "http://localhost:8080/1",
+				response: "http://localhost:8080/"+short1,
 			},
 		},
 		{
@@ -52,7 +55,7 @@ func Test_getShortened(t *testing.T) {
 			origin: "https://youtube.com/",
 			want: want{
 				code:     201,
-				response: "http://localhost:8080/2",
+				response: "http://localhost:8080/"+short2,
 			},
 		},
 	}
@@ -84,11 +87,13 @@ func Test_getShortenedAPI(t *testing.T) {
 		ShortenAddr: "http://localhost:8080",
 	}
 
+	short1 := `{"result":"http://localhost:8080/`+uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://practicum.yandex.ru/")).String()+`"}`
+	short2 := `{"result":"http://localhost:8080/`+uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://youtube.com/")).String()+`"}`
+
 	storage := storage.NewStorage()
 	newApp := App{
 		Cfg:     cfg,
 		Storage: storage,
-		short:   0,
 	}
 	r.POST("/api/shorten", newApp.GetShortenedAPI)
 	type want struct {
@@ -105,7 +110,7 @@ func Test_getShortenedAPI(t *testing.T) {
 			origin: `{"url": "https://practicum.yandex.ru"}`,
 			want: want{
 				code:     201,
-				response: `{"result":"http://localhost:8080/1"}`,
+				response: short1,
 			},
 		},
 		{
@@ -113,7 +118,7 @@ func Test_getShortenedAPI(t *testing.T) {
 			origin: `{"url": "https://youtube.com/"}`,
 			want: want{
 				code:     201,
-				response: `{"result":"http://localhost:8080/2"}`,
+				response: short2,
 			},
 		},
 	}
@@ -145,14 +150,15 @@ func Test_getOrigin(t *testing.T) {
 		ShortenAddr: "http://localhost:8080",
 	}
 
+	short1 := uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://practicum.yandex.ru/")).String()
+
 	storage := storage.NewStorage()
 	newApp := App{
 		Cfg:     cfg,
 		Storage: storage,
-		short:   0,
 	}
 	url, _ := url.ParseRequestURI("https://practicum.yandex.ru/")
-	newApp.Storage.AddOrigin("1", url)
+	newApp.Storage.AddOrigin(short1, url)
 
 	type want struct {
 		code     int
@@ -165,7 +171,7 @@ func Test_getOrigin(t *testing.T) {
 	}{
 		{
 			name:    "positive test #1",
-			request: "/1",
+			request: "/"+short1,
 			want: want{
 				code:     307,
 				response: "",

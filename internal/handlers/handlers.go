@@ -65,7 +65,7 @@ func (newApp *App) PingPostgresDB(c *gin.Context) {
 
 func (newApp *App) AddOrigin(url *url.URL) (string, error) {
 	var err error
-	short := uuid.NewString()
+	short := uuid.NewSHA1(uuid.NameSpaceURL, []byte(url.String())).String()
 
 	if newApp.Cfg.PostgresDBAddr != "" {
 		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
@@ -150,7 +150,7 @@ func (newApp *App) SendBatch (c *gin.Context) {
 		
 		for i := 0; i < len(urls); i++ {
 			if urls[i].ID !="" && urls[i].URL !="" {
-				short := uuid.NewString()
+				short := uuid.NewSHA1(uuid.NameSpaceURL, []byte(urls[i].URL)).String()
 				// все изменения записываются в транзакцию
 				_, err := tx.ExecContext(context.Background(), 
 				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", urls[i].URL, short)
