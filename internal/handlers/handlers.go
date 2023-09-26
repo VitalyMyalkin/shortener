@@ -27,8 +27,7 @@ import (
 
 type App struct {
 	Cfg     config.Config
-	Storage *storage.Storage
-	PostgresDB *sql.DB		
+	Storage *storage.Storage	
 }
 
 type Request struct {
@@ -44,19 +43,19 @@ type URLwithID struct {
 func NewApp() *App {
 	cfg := config.GetConfig()
 	storage := storage.NewStorage()
-	db, err := sql.Open("pgx", cfg.PostgresDBAddr)
-    if err != nil {
-        fmt.Println(err)
-    }
 	return &App{
 		Cfg:     cfg,
 		Storage: storage,
-		PostgresDB: db,
 	}
 }
 
 func (newApp *App) PingPostgresDB(c *gin.Context) {
-	if err := newApp.PostgresDB.PingContext(context.Background()); err != nil {
+	db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+    if err != nil {
+        fmt.Println(err)
+    }
+	defer db.Close()
+	if err := db.PingContext(context.Background()); err != nil {
         c.Status(http.StatusInternalServerError)
     } else {
 		c.Status(http.StatusOK)
@@ -68,16 +67,21 @@ func (newApp *App) AddOrigin(url *url.URL) (string, error) {
 	short := uuid.NewSHA1(uuid.NameSpaceURL, []byte(url.String())).String()
 
 	if newApp.Cfg.PostgresDBAddr != "" {
-		_, err := newApp.PostgresDB.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
+		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer db.Close()
+		_, err = db.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
 		if err != nil {
 			logger.Log.Fatal(err.Error())
 		}
-		_, err = newApp.PostgresDB.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url.String(), short)
+		_, err = db.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url.String(), short)
 		if err != nil {
 			var pgErr *pgconn.PgError
         	if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
 				var a string
-				newApp.PostgresDB.QueryRow("SELECT shortened FROM urls WHERE origin = $1", url.String()).Scan(&a)
+				db.QueryRow("SELECT shortened FROM urls WHERE origin = $1", url.String()).Scan(&a)
 				return a, err
 			}
 			logger.Log.Fatal("возникла другая ошибка при записи ссылки в бд")
@@ -138,10 +142,15 @@ func (newApp *App) SendBatch (c *gin.Context) {
 	}
 
 	json.Unmarshal([]byte(body), &urls)
-
+	
 	if newApp.Cfg.PostgresDBAddr != "" {
+		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer db.Close()
 		// начинаю транзакцию
-		tx, err := newApp.PostgresDB.BeginTx(context.Background(), nil)
+		tx, err := db.BeginTx(context.Background(), nil)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": err,
@@ -227,12 +236,18 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 	var original string
 
 	if newApp.Cfg.PostgresDBAddr != "" {
+		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer db.Close()
+		
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
     	defer cancel()
     	// делаем обращение к db в рамках полученного контекста
-    	row := newApp.PostgresDB.QueryRowContext(ctx, "SELECT origin FROM urls WHERE shortened = $1", c.Param("id"))
+    	row := db.QueryRowContext(ctx, "SELECT origin FROM urls WHERE shortened = $1", c.Param("id"))
     	// готовим переменную для чтения результата
-    	err := row.Scan(&original)  // разбираем результат
+    	err = row.Scan(&original)  // разбираем результат
     	if err != nil {
         	logger.Log.Fatal("невозможно прочитать данные записи из базы данных")
     	}
