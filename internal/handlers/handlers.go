@@ -6,11 +6,19 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
+	"errors"
 	"bufio"
+	"context"
+	"database/sql"
+	"time"
+	"fmt"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"github.com/google/uuid"
 
 	"github.com/VitalyMyalkin/shortener/internal/config"
 	"github.com/VitalyMyalkin/shortener/internal/logger"
@@ -19,12 +27,17 @@ import (
 
 type App struct {
 	Cfg     config.Config
-	Storage *storage.Storage
-	short   int
+	Storage *storage.Storage	
 }
 
 type Request struct {
 	URLstring string `json:"url"`
+}
+
+type URLwithID struct {
+	ID string `json:"correlation_id"`
+	URL string `json:"original_url"`
+	Shortened string `json:"short_url"`
 }
 
 func NewApp() *App {
@@ -33,24 +46,66 @@ func NewApp() *App {
 	return &App{
 		Cfg:     cfg,
 		Storage: storage,
-		short:   0,
 	}
 }
 
-func (newApp *App) AddOriginFile(url *url.URL) {
-	fileName := newApp.Cfg.FilePath
-	Producer, err := storage.NewFileWriter(fileName)
-	if err != nil {
-		logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
+func (newApp *App) PingPostgresDB(c *gin.Context) {
+	db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+    if err != nil {
+        fmt.Println(err)
+    }
+	defer db.Close()
+	if err := db.PingContext(context.Background()); err != nil {
+        c.Status(http.StatusInternalServerError)
+    } else {
+		c.Status(http.StatusOK)
 	}
-	defer Producer.Close()
-	if err := Producer.WriteShortenedURL(strconv.Itoa(newApp.short), url); err != nil {
-		logger.Log.Fatal("запись не внесена в файл")
+}
+
+func (newApp *App) AddOrigin(url *url.URL) (string, error) {
+	var err error
+	short := uuid.NewSHA1(uuid.NameSpaceURL, []byte(url.String())).String()
+
+	if newApp.Cfg.PostgresDBAddr != "" {
+		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer db.Close()
+		_, err = db.Exec("CREATE TABLE IF NOT EXISTS urls (id SERIAL PRIMARY KEY, origin TEXT UNIQUE, shortened TEXT)")
+		if err != nil {
+			logger.Log.Fatal(err.Error())
+		}
+		_, err = db.Exec("INSERT INTO urls (origin, shortened) VALUES ($1, $2)", url.String(), short)
+		if err != nil {
+			var pgErr *pgconn.PgError
+        	if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
+				var a string
+				db.QueryRow("SELECT shortened FROM urls WHERE origin = $1", url.String()).Scan(&a)
+				return a, err
+			}
+			logger.Log.Fatal("возникла другая ошибка при записи ссылки в бд")
+		}
+	} else if newApp.Cfg.FilePath != "" {
+		fileName := newApp.Cfg.FilePath
+		Producer, err := storage.NewFileWriter(fileName)
+		if err != nil {
+			logger.Log.Fatal("не создан или не открылся файл записи" + fileName)
+		}
+		defer Producer.Close()
+		if err := Producer.WriteShortenedURL(short, url); err != nil {
+			logger.Log.Fatal("запись не внесена в файл" + fileName)
+		}
+	} else {
+		newApp.Storage.AddOrigin(short, url)
 	}
+	return short, err
 }
 
 
 func (newApp *App) GetShortened(c *gin.Context) {
+	var pgErr *pgconn.PgError
+	var result string
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -63,17 +118,90 @@ func (newApp *App) GetShortened(c *gin.Context) {
 			"error": string(body) + "не является валидным URL",
 		})
 	}
-	newApp.short += 1
-	if newApp.Cfg.FilePath == "" {
-		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
-	} else {
-		newApp.AddOriginFile(url)
+
+	result, err = newApp.AddOrigin(url)
+
+	if err == nil {
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+result)
+	} else if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
+		c.Header("Content-Type", "text/plain")
+		c.String(http.StatusConflict, newApp.Cfg.ShortenAddr+"/"+result)
 	}
-	c.Header("Content-Type", "text/plain")
-	c.String(http.StatusCreated, newApp.Cfg.ShortenAddr+"/"+strconv.Itoa(newApp.short))
 }
 
-func (newApp *App) GetShortenedAPI(c *gin.Context) {
+func (newApp *App) SendBatch (c *gin.Context) {
+	// десериализуем запрос 
+	logger.Log.Debug("decoding request")
+	var urls []URLwithID
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err,
+		})
+	}
+
+	json.Unmarshal([]byte(body), &urls)
+	
+	if newApp.Cfg.PostgresDBAddr != "" {
+		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer db.Close()
+		// начинаю транзакцию
+		tx, err := db.BeginTx(context.Background(), nil)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err,
+			})
+		}
+		
+		for i := 0; i < len(urls); i++ {
+			if urls[i].ID !="" && urls[i].URL !="" {
+				short := uuid.NewSHA1(uuid.NameSpaceURL, []byte(urls[i].URL)).String()
+				// все изменения записываются в транзакцию
+				_, err := tx.ExecContext(context.Background(), 
+				"INSERT INTO urls (origin, shortened) VALUES ($1, $2)", urls[i].URL, short)
+				if err != nil {
+					// если ошибка, то откатываем изменения
+					tx.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": err,
+					})
+				}
+				urls[i].Shortened = newApp.Cfg.ShortenAddr + "/" + short
+			}
+		}
+
+		// коммитим транзакцию
+		tx.Commit()
+	} else {
+		for i := 0; i < len(urls); i++  {
+			if urls[i].ID !="" && urls[i].URL !="" {
+				url, err := url.ParseRequestURI(urls[i].URL)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": string(body) + "не является валидным URL",
+					})
+				}
+				result, erro := newApp.AddOrigin(url)
+				if erro != nil {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"error": err,
+					})
+				}
+				urls[i].Shortened = newApp.Cfg.ShortenAddr + "/" + result
+			}
+		}
+	}
+	c.Header("Content-Type", "application/json")
+	c.JSON(http.StatusCreated, &urls)
+}
+
+func (newApp *App) GetShortenedAPI (c *gin.Context) {
+	var pgErr *pgconn.PgError
+	var result string
 	// десериализуем запрос в структуру модели
 	logger.Log.Debug("decoding request")
 	var req Request
@@ -88,25 +216,42 @@ func (newApp *App) GetShortenedAPI(c *gin.Context) {
 		logger.Log.Debug(req.URLstring+"не является валидным URL", zap.Error(err))
 		c.String(http.StatusBadRequest, "")
 	}
-	newApp.short += 1
-	if newApp.Cfg.FilePath == "" {
-		newApp.Storage.AddOrigin(strconv.Itoa(newApp.short), url)
-	} else {
-		newApp.AddOriginFile(url)
-	}
-	c.Header("Content-Type", "application/json")
 
-	c.JSON(http.StatusCreated, gin.H{
-		"result": newApp.Cfg.ShortenAddr + "/" + strconv.Itoa(newApp.short),
-	})
+	result, err = newApp.AddOrigin(url)
+
+	if err == nil {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusCreated, gin.H{
+			"result": newApp.Cfg.ShortenAddr + "/" + result,
+		})
+	} else if errors.As(err, &pgErr) && pgerrcode.UniqueViolation == pgErr.Code {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusConflict, gin.H{
+			"result": newApp.Cfg.ShortenAddr + "/" + result,
+		})
+	}
 }
 
 func (newApp *App) GetOrigin(c *gin.Context) {
 	var original string
-	
-	original = newApp.Storage.Storage[c.Param("id")]
 
-	if newApp.Cfg.FilePath != "" {
+	if newApp.Cfg.PostgresDBAddr != "" {
+		db, err := sql.Open("pgx", newApp.Cfg.PostgresDBAddr)
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer db.Close()
+		
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+    	defer cancel()
+    	// делаем обращение к db в рамках полученного контекста
+    	row := db.QueryRowContext(ctx, "SELECT origin FROM urls WHERE shortened = $1", c.Param("id"))
+    	// готовим переменную для чтения результата
+    	err = row.Scan(&original)  // разбираем результат
+    	if err != nil {
+        	logger.Log.Fatal("невозможно прочитать данные записи из базы данных")
+    	}
+	} else if newApp.Cfg.FilePath != "" {
 		fileName := newApp.Cfg.FilePath
 
 		file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
@@ -131,6 +276,8 @@ func (newApp *App) GetOrigin(c *gin.Context) {
 				}
 			}
 		}
+	} else {
+		original = newApp.Storage.Storage[c.Param("id")]
 	}
 
 	c.Header("Location", original)
